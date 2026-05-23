@@ -29,6 +29,7 @@
  *   /api/user/devices/**       Multi-device session management
  *   /api/admin/dashboard/**    Admin KPI dashboard
  *   /api/admin/inventory/**    Admin inventory management
+ *   /api/admin/reports/**      Admin sales & inventory reports
  *   /health                    Health check
  */
 
@@ -74,6 +75,7 @@ module.exports = (app) => {
   // ── Admin ─────────────────────────────────────────────────────────────────────
   app.use("/api/admin/dashboard",  require("./admin/dashboard.routes"));
   app.use("/api/admin/inventory",  require("./admin/inventory.routes"));
+  app.use("/api/admin/reports",    require("./report.routes"));
 
   // ── System ────────────────────────────────────────────────────────────────────
   app.get("/health", (req, res) =>

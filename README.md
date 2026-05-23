@@ -389,7 +389,7 @@ Full interactive documentation is available at **`/api-docs`** once the server i
 | `GET` | `/api/articles` | — | Published articles |
 | `POST` | `/api/articles` | Admin/Pharm | Create article |
 
-### Admin — Dashboard & Inventory
+### Admin — Dashboard, Inventory & Reports
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
@@ -401,6 +401,11 @@ Full interactive documentation is available at **`/api-docs`** once the server i
 | `GET` | `/api/admin/inventory/low-stock` | Admin | Medicines below threshold |
 | `GET` | `/api/admin/inventory/expiry` | Admin | Expiring / expired medicines |
 | `POST` | `/api/admin/inventory/bulk-stock` | Admin | Bulk stock update |
+| `GET` | `/api/admin/reports/sales` | Admin | Sales report |
+| `GET` | `/api/admin/reports/inventory` | Admin | Inventory report |
+| `GET` | `/api/admin/reports/low-stock` | Admin | Low-stock report |
+| `GET` | `/api/admin/reports/revenue` | Admin | Revenue by period |
+| `GET` | `/api/admin/reports/top-medicines` | Admin | Top-selling medicines |
 
 ---
 
@@ -422,13 +427,14 @@ pharmacy-backend/
     │   └── index.js                # Barrel export
     │
     ├── controllers/
-    │   ├── auth.controller.js      # Register, login, tokens, session
-    │   ├── biometric.controller.js # Enable/verify/disable biometric
-    │   ├── pin.controller.js       # Set/verify/remove PIN
-    │   ├── phoneOtp.controller.js  # Send/verify phone OTP
-    │   ├── nafath.controller.js    # Saudi NIC (elm.sa) auth
-    │   ├── guest.controller.js     # Guest sessions + cart
-    │   ├── device.controller.js    # Multi-device management
+    │   ├── auth/                    # Authentication & identity domain
+    │   │   ├── auth.controller.js      # Register, login, tokens, session
+    │   │   ├── biometric.controller.js # Enable/verify/disable biometric
+    │   │   ├── pin.controller.js       # Set/verify/remove PIN
+    │   │   ├── phoneOtp.controller.js  # Send/verify phone OTP
+    │   │   ├── nafath.controller.js    # Saudi NIC (elm.sa) auth
+    │   │   ├── guest.controller.js     # Guest sessions + cart
+    │   │   └── device.controller.js    # Multi-device management
     │   ├── user.controller.js      # Profiles, addresses, loyalty
     │   ├── medicine.controller.js  # Catalogue CRUD + stock
     │   ├── category.controller.js

@@ -7,13 +7,13 @@ const {
   getMe, checkSession,
   verifyEmail, resendOTP, forgotPassword, resetPassword, changePassword,
   socialLogin,
-} = require("../controllers/auth.controller");
+} = require("../controllers/auth/auth.controller");
 
-const biometricCtrl  = require("../controllers/biometric.controller");
-const pinCtrl        = require("../controllers/pin.controller");
-const phoneOtpCtrl   = require("../controllers/phoneOtp.controller");
-const nafathCtrl     = require("../controllers/nafath.controller");
-const guestCtrl      = require("../controllers/guest.controller");
+const biometricCtrl  = require("../controllers/auth/biometric.controller");
+const pinCtrl        = require("../controllers/auth/pin.controller");
+const phoneOtpCtrl   = require("../controllers/auth/phoneOtp.controller");
+const nafathCtrl     = require("../controllers/auth/nafath.controller");
+const guestCtrl      = require("../controllers/auth/guest.controller");
 
 // ── Middleware ────────────────────────────────────────────────────────────────
 const { protect }                    = require("../middleware/auth.middleware");

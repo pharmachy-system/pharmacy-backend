@@ -20,10 +20,10 @@
 
 const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
-const Session = require("../models/Session.model");
-const { generateAccessToken, generateRefreshToken } = require("../utils/token.util");
-const { upsertSession } = require("../utils/session.util");
-const User = require("../models/User.model");
+const Session = require("../../models/Session.model");
+const { generateAccessToken, generateRefreshToken } = require("../../utils/token.util");
+const { upsertSession } = require("../../utils/session.util");
+const User = require("../../models/User.model");
 
 const BIOMETRIC_TOKEN_EXPIRY_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const MAX_BIOMETRIC_FAILURES = 3;
@@ -99,7 +99,7 @@ exports.verifyBiometric = async (req, res, next) => {
     }
 
     // Issue new tokens
-    const { generateAccessToken, generateRefreshToken } = require("../utils/token.util");
+    const { generateAccessToken, generateRefreshToken } = require("../../utils/token.util");
     const accessToken  = generateAccessToken(user._id);
     const refreshToken = generateRefreshToken(user._id);
 

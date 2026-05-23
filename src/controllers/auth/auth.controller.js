@@ -5,13 +5,13 @@ const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 
 // Models
-const User    = require("../models/User.model");
-const Session = require("../models/Session.model");
+const User    = require("../../models/User.model");
+const Session = require("../../models/Session.model");
 
 // Utils
-const { generateAccessToken, generateRefreshToken } = require("../utils/token.util");
-const { extractDeviceInfo, upsertSession }          = require("../utils/session.util");
-const { sendOtpEmail, sendPasswordResetEmail }      = require("../utils/email.util");
+const { generateAccessToken, generateRefreshToken } = require("../../utils/token.util");
+const { extractDeviceInfo, upsertSession }          = require("../../utils/session.util");
+const { sendOtpEmail, sendPasswordResetEmail }      = require("../../utils/email.util");
 
 const userPayload = (user) => ({
   id:              user._id,

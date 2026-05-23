@@ -24,9 +24,9 @@
  */
 
 const crypto = require("crypto");
-const User = require("../models/User.model");
-const { extractDeviceInfo, upsertSession } = require("../utils/session.util");
-const { generateAccessToken, generateRefreshToken } = require("../utils/token.util");
+const User = require("../../models/User.model");
+const { extractDeviceInfo, upsertSession } = require("../../utils/session.util");
+const { generateAccessToken, generateRefreshToken } = require("../../utils/token.util");
 
 // In-memory store for pending transactions (use Redis in production)
 // key: transactionId → { nationalId, status, userData, createdAt }

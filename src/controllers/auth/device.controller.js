@@ -9,7 +9,7 @@
  *   DELETE /api/user/devices              → revoke ALL device sessions (logout everywhere)
  */
 
-const Session = require("../models/Session.model");
+const Session = require("../../models/Session.model");
 
 // ─── List all devices ─────────────────────────────────────────────────────────
 exports.getDevices = async (req, res, next) => {

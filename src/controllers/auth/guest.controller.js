@@ -18,12 +18,12 @@
  */
 
 const { randomUUID: uuidv4 } = require("crypto");
-const GuestSession = require("../models/GuestSession.model");
-const User = require("../models/User.model");
-const Medicine = require("../models/Medicine.model");
-const Cart = require("../models/Cart.model");
-const { extractDeviceInfo, upsertSession } = require("../utils/session.util");
-const { generateAccessToken, generateRefreshToken } = require("../utils/token.util");
+const GuestSession = require("../../models/GuestSession.model");
+const User = require("../../models/User.model");
+const Medicine = require("../../models/Medicine.model");
+const Cart = require("../../models/Cart.model");
+const { extractDeviceInfo, upsertSession } = require("../../utils/session.util");
+const { generateAccessToken, generateRefreshToken } = require("../../utils/token.util");
 
 // ─── Create guest session ─────────────────────────────────────────────────────
 exports.createSession = async (req, res, next) => {

@@ -7,9 +7,9 @@
  */
 
 const bcrypt = require("bcryptjs");
-const Session = require("../models/Session.model");
-const User = require("../models/User.model");
-const { generateAccessToken, generateRefreshToken } = require("../utils/token.util");
+const Session = require("../../models/Session.model");
+const User = require("../../models/User.model");
+const { generateAccessToken, generateRefreshToken } = require("../../utils/token.util");
 
 const PIN_LOCK_ATTEMPTS  = 5;
 const PIN_LOCKOUT_MS     = 15 * 60 * 1000; // 15 minutes

@@ -12,10 +12,10 @@
  */
 
 const crypto = require("crypto");
-const User = require("../models/User.model");
-const sendSMS = require("../utils/sms.util");
-const { extractDeviceInfo, upsertSession } = require("../utils/session.util");
-const { generateAccessToken, generateRefreshToken } = require("../utils/token.util");
+const User = require("../../models/User.model");
+const sendSMS = require("../../utils/sms.util");
+const { extractDeviceInfo, upsertSession } = require("../../utils/session.util");
+const { generateAccessToken, generateRefreshToken } = require("../../utils/token.util");
 
 const OTP_COOLDOWN_MS = 60 * 1000;      // 60 seconds between sends
 const OTP_EXPIRY_MS   = 5 * 60 * 1000; // 5 minutes

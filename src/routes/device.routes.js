@@ -7,7 +7,7 @@ const {
   updateDevice,
   removeDevice,
   removeAllDevices,
-} = require("../controllers/device.controller");
+} = require("../controllers/auth/device.controller");
 
 // All device routes require authentication
 router.use(protect);

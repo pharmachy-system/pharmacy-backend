@@ -46,7 +46,7 @@ Production-ready REST API for a full-featured online pharmacy built with **Node.
 ### Notifications
 - **Push notifications** via Firebase Cloud Messaging (FCM) — multicast + topic broadcast
 - **SMS** via Twilio (order updates, OTP)
-- **Email** — bilingual (Arabic/English) HTML templates for welcome, OTP, password reset, order confirmation, order status updates, and low-stock alerts
+- **Email** — HTML templates for welcome, OTP, password reset, order confirmation, order status updates, and low-stock alerts
 - In-app notification centre with read/unread state
 
 ### Admin Panel
@@ -58,7 +58,7 @@ Production-ready REST API for a full-featured online pharmacy built with **Node.
 
 ### Developer Experience
 - **Swagger UI** at `/api-docs` and `/api/docs` — full OpenAPI 3.0 spec
-- **Joi validators** for all routes with bilingual Arabic/English error messages
+- **Joi validators** for all routes with clear error messages
 - **AppError** class with factory helpers for consistent error responses
 - Structured **Winston** logging with daily log rotation
 - **Morgan** HTTP request logging
@@ -153,7 +153,7 @@ Copy `.env.example` to `.env` and fill in the values below.
 | `EMAIL_USER` | SMTP username / sender address |
 | `EMAIL_PASS` | SMTP password or app password |
 | `EMAIL_FROM_NAME` | Sender display name (default `Pharmacy`) |
-| `APP_NAME` | Displayed in email headers (default `صيدليتي \| Pharmacy`) |
+| `APP_NAME` | Displayed in email headers (default `Pharmacy`) |
 
 ### Cloudinary (Image Uploads)
 
@@ -529,7 +529,7 @@ pharmacy-backend/
     │   └── index.js                # Barrel export
     │
     └── validators/
-        ├── joi.validators.js       # Joi schemas for ALL routes, bilingual messages
+        ├── joi.validators.js       # Joi schemas for ALL routes
         ├── auth.validator.js       # express-validator chains (legacy)
         ├── medicine.validator.js
         ├── category.validator.js
@@ -549,7 +549,6 @@ All errors follow a consistent shape:
   "success": false,
   "status": "fail",
   "message": "Email already registered",
-  "messageAr": "البريد الإلكتروني مستخدم بالفعل",
   "code": "DUPLICATE_KEY"
 }
 ```
@@ -560,10 +559,10 @@ Validation errors include a field-level breakdown:
 {
   "success": false,
   "status": "fail",
-  "message": "Validation failed | فشل التحقق من البيانات",
+  "message": "Validation failed",
   "errors": [
-    { "field": "email", "message": "Invalid email address", "messageAr": "البريد الإلكتروني غير صالح" },
-    { "field": "password", "message": "Password must be at least 8 characters", "messageAr": "كلمة المرور يجب أن تكون 8 أحرف على الأقل" }
+    { "field": "email", "message": "Invalid email address" },
+    { "field": "password", "message": "Password must be at least 8 characters" }
   ]
 }
 ```

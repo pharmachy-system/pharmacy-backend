@@ -53,7 +53,7 @@ const sendWelcomeEmail = async (user, verificationLink = null) => {
   try {
     await sendEmail({
       to:      user.email,
-      subject: `مرحباً بك في صيدليتنا | Welcome to Our Pharmacy`,
+      subject: `Welcome to Our Pharmacy`,
       html:    templates.welcomeEmail({ name: user.name, verificationLink }),
     });
   } catch (err) {
@@ -66,7 +66,7 @@ const sendPasswordResetEmail = async (user, resetLink, expiresInMinutes = 10) =>
   try {
     await sendEmail({
       to:      user.email,
-      subject: "إعادة تعيين كلمة المرور | Password Reset",
+      subject: "Password Reset",
       html:    templates.passwordResetEmail({ name: user.name, resetLink, expiresInMinutes }),
     });
   } catch (err) {
@@ -79,7 +79,7 @@ const sendOrderConfirmationEmail = async (user, order) => {
   try {
     await sendEmail({
       to:      user.email,
-      subject: `تأكيد الطلب #${order.orderNumber || order._id} | Order Confirmed`,
+      subject: `Order Confirmed #${order.orderNumber || order._id}`,
       html:    templates.orderConfirmationEmail({ name: user.name, order }),
     });
   } catch (err) {
@@ -92,7 +92,7 @@ const sendOtpEmail = async (user, otp, purpose, expiresInMinutes = 5) => {
   try {
     await sendEmail({
       to:      user.email,
-      subject: "رمز التحقق | Verification Code",
+      subject: "Verification Code",
       html:    templates.otpEmail({ name: user.name, otp, purpose, expiresInMinutes }),
     });
   } catch (err) {
@@ -105,7 +105,7 @@ const sendOrderStatusEmail = async (user, order, newStatus) => {
   try {
     await sendEmail({
       to:      user.email,
-      subject: `تحديث طلبك #${order.orderNumber || order._id} | Order Update`,
+      subject: `Order Update #${order.orderNumber || order._id}`,
       html:    templates.orderStatusEmail({ name: user.name, order, newStatus }),
     });
   } catch (err) {
@@ -118,7 +118,7 @@ const sendLowStockAlert = async (adminEmail, items) => {
   try {
     await sendEmail({
       to:      adminEmail,
-      subject: "⚠️ تنبيه مخزون منخفض | Low Stock Alert",
+      subject: "Low Stock Alert",
       html:    templates.lowStockAlertEmail({ items }),
     });
   } catch (err) {

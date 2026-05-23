@@ -5,20 +5,13 @@ const logger   = require("../config/logger.config");
 
 /** Mongoose: invalid ObjectId cast */
 const handleCastError = (err) =>
-  AppError.badRequest(
-    `Invalid value for field '${err.path}': ${err.value}`,
-    `قيمة غير صالحة للحقل '${err.path}'`
-  );
+  AppError.badRequest(`Invalid value for field '${err.path}': ${err.value}`);
 
 /** Mongoose: unique index violation */
 const handleDuplicateKey = (err) => {
   const field = Object.keys(err.keyValue || {})[0] || "field";
   const value = err.keyValue?.[field];
-  return AppError.conflict(
-    `${field} '${value}' is already in use`,
-    `${field} '${value}' مستخدم بالفعل`,
-    "DUPLICATE_KEY"
-  );
+  return AppError.conflict(`${field} '${value}' is already in use`, "DUPLICATE_KEY");
 };
 
 /** Mongoose: schema validation failures */
@@ -30,7 +23,6 @@ const handleMongooseValidation = (err) => {
   return new AppError(
     Object.values(err.errors).map((e) => e.message).join(". "),
     400,
-    null,
     "VALIDATION_ERROR",
     { errors }
   );
@@ -38,15 +30,15 @@ const handleMongooseValidation = (err) => {
 
 /** JWT: signature invalid */
 const handleJwtInvalid = () =>
-  AppError.unauthorized("Invalid token — please log in again", "رمز غير صالح — يرجى تسجيل الدخول مجدداً");
+  AppError.unauthorized("Invalid token — please log in again");
 
 /** JWT: expired */
 const handleJwtExpired = () =>
-  AppError.unauthorized("Your session has expired — please log in again", "انتهت صلاحية الجلسة — يرجى تسجيل الدخول");
+  AppError.unauthorized("Your session has expired — please log in again");
 
 /** Multer: file too large */
 const handleMulterLimit = () =>
-  AppError.badRequest("File size exceeds the allowed limit", "حجم الملف يتجاوز الحد المسموح", "FILE_TOO_LARGE");
+  AppError.badRequest("File size exceeds the allowed limit", "FILE_TOO_LARGE");
 
 // ─── Response builder ─────────────────────────────────────────────────────────
 
@@ -59,7 +51,6 @@ const sendError = (err, req, res) => {
       success:   false,
       status:    err.status,
       message:   err.message,
-      ...(err.messageAr  && { messageAr: err.messageAr }),
       ...(err.code       && { code: err.code }),
       ...(err.meta && Object.keys(err.meta).length && { ...err.meta }),
     };
@@ -78,19 +69,17 @@ const sendError = (err, req, res) => {
 
   if (isDev) {
     return res.status(500).json({
-      success:  false,
-      status:   "error",
-      message:  err.message,
-      messageAr: "خطأ غير متوقع في الخادم",
-      stack:    err.stack,
+      success: false,
+      status:  "error",
+      message: err.message,
+      stack:   err.stack,
     });
   }
 
   return res.status(500).json({
-    success:   false,
-    status:    "error",
-    message:   "Something went wrong. Please try again later.",
-    messageAr: "حدث خطأ ما. يرجى المحاولة مرة أخرى لاحقاً.",
+    success: false,
+    status:  "error",
+    message: "Something went wrong. Please try again later.",
   });
 };
 
@@ -105,7 +94,7 @@ const errorHandler = (err, req, res, next) => { // eslint-disable-line no-unused
   else if (err.name  === "ValidationError")   error = handleMongooseValidation(err);
   else if (err.name  === "JsonWebTokenError") error = handleJwtInvalid();
   else if (err.name  === "TokenExpiredError") error = handleJwtExpired();
-  else if (err.type  === "entity.too.large")  error = AppError.badRequest("Request body too large", "حجم الطلب كبير جداً");
+  else if (err.type  === "entity.too.large")  error = AppError.badRequest("Request body too large");
   else if (err.code  === "LIMIT_FILE_SIZE")   error = handleMulterLimit();
   else if (!err.isOperational) {
     // Ensure every error has the AppError shape

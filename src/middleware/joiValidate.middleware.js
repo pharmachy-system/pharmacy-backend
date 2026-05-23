@@ -22,20 +22,15 @@ const joiValidate = (schema, source = "body") => (req, res, next) => {
   });
 
   if (error) {
-    const errors = error.details.map((d) => {
-      const rawMsg = d.message.replace(/['"]/g, "");
-      const [en, ar] = rawMsg.split(" | ");
-      return {
-        field:     d.context?.label || d.path.join("."),
-        message:   en?.trim() || rawMsg,
-        messageAr: ar?.trim() || null,
-      };
-    });
+    const errors = error.details.map((d) => ({
+      field:   d.context?.label || d.path.join("."),
+      message: d.message.replace(/['"]/g, "").trim(),
+    }));
 
     return res.status(422).json({
-      success:   false,
-      status:    "fail",
-      message:   "Validation failed | فشل التحقق من البيانات",
+      success: false,
+      status:  "fail",
+      message: "Validation failed",
       errors,
     });
   }
@@ -68,13 +63,10 @@ const joiValidateMulti = (schemas) => (req, res, next) => {
 
     if (error) {
       error.details.forEach((d) => {
-        const rawMsg = d.message.replace(/['"]/g, "");
-        const [en, ar] = rawMsg.split(" | ");
         errors.push({
           source,
-          field:     d.context?.label || d.path.join("."),
-          message:   en?.trim() || rawMsg,
-          messageAr: ar?.trim() || null,
+          field:   d.context?.label || d.path.join("."),
+          message: d.message.replace(/['"]/g, "").trim(),
         });
       });
     } else {
@@ -86,7 +78,7 @@ const joiValidateMulti = (schemas) => (req, res, next) => {
     return res.status(422).json({
       success: false,
       status:  "fail",
-      message: "Validation failed | فشل التحقق من البيانات",
+      message: "Validation failed",
       errors,
     });
   }

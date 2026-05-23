@@ -80,7 +80,7 @@ exports.register = async (req, res, next) => {
     const otp = user.generateOTP();
     await user.save({ validateBeforeSave: false });
     try {
-      await sendOtpEmail(user, otp, "التحقق من البريد الإلكتروني | Email Verification", 10);
+      await sendOtpEmail(user, otp, "Email Verification", 10);
     } catch { /* non-blocking */ }
 
     const deviceInfo = extractDeviceInfo(req);
@@ -284,7 +284,7 @@ exports.resendOTP = async (req, res, next) => {
     const otp = user.generateOTP();
     await user.save({ validateBeforeSave: false });
 
-    await sendOtpEmail(user, otp, "التحقق من البريد الإلكتروني | Email Verification", 10);
+    await sendOtpEmail(user, otp, "Email Verification", 10);
 
     res.json({ success: true, message: "OTP sent to your email" });
   } catch (err) {

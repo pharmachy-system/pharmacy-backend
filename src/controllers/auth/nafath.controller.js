@@ -98,7 +98,6 @@ const nafathApi = {
         return {
           status: "approved",
           nationalId: txn.nationalId,
-          nameAr: "مستخدم نافذ",
           nameEn: "Nafath User",
         };
       }

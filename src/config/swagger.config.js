@@ -103,7 +103,7 @@ const components = {
       properties: {
         _id:                  { type: "string" },
         name:                 { type: "string", example: "Paracetamol 500mg" },
-        nameAr:               { type: "string", example: "باراسيتامول" },
+        nameAr:               { type: "string" },
         slug:                 { type: "string", example: "paracetamol-500mg" },
         description:          { type: "string" },
         images:               { type: "array", items: { $ref: "#/components/schemas/MedicineImage" } },
@@ -173,7 +173,7 @@ const components = {
       properties: {
         _id:         { type: "string" },
         name:        { type: "string", example: "Analgesics" },
-        nameAr:      { type: "string", example: "مسكنات الألم" },
+        nameAr:      { type: "string" },
         slug:        { type: "string" },
         description: { type: "string" },
         image:       { type: "string", nullable: true },

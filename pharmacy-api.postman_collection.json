@@ -1,0 +1,794 @@
+{
+  "info": {
+    "name": "Pharmacy Backend API",
+    "description": "Complete API collection for the Pharmacy Backend. Set the `baseUrl` variable to your server URL (default: http://localhost:5000) and use the `accessToken` variable after logging in.",
+    "version": "1.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000", "type": "string" },
+    { "key": "accessToken", "value": "", "type": "string" },
+    { "key": "refreshToken", "value": "", "type": "string" },
+    { "key": "orderId", "value": "", "type": "string" },
+    { "key": "medicineId", "value": "", "type": "string" },
+    { "key": "categoryId", "value": "", "type": "string" },
+    { "key": "prescriptionId", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code === 201) {", "  const body = pm.response.json();", "  pm.collectionVariables.set('accessToken', body.tokens.accessToken);", "  pm.collectionVariables.set('refreshToken', body.tokens.refreshToken);", "}", "pm.test('Status 201', () => pm.response.to.have.status(201));"], "type": "text/javascript" } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Jane Doe\",\n  \"email\": \"jane@example.com\",\n  \"password\": \"Password123!\",\n  \"phone\": \"0501234567\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/register", "host": ["{{baseUrl}}"], "path": ["api", "auth", "register"] }
+          }
+        },
+        {
+          "name": "Login",
+          "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code === 200) {", "  const body = pm.response.json();", "  pm.collectionVariables.set('accessToken', body.tokens.accessToken);", "  pm.collectionVariables.set('refreshToken', body.tokens.refreshToken);", "}", "pm.test('Status 200', () => pm.response.to.have.status(200));"], "type": "text/javascript" } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"jane@example.com\",\n  \"password\": \"Password123!\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login"] }
+          }
+        },
+        {
+          "name": "Get Me",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/auth/me", "host": ["{{baseUrl}}"], "path": ["api", "auth", "me"] }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code === 200) {", "  const body = pm.response.json();", "  pm.collectionVariables.set('accessToken', body.tokens.accessToken);", "  pm.collectionVariables.set('refreshToken', body.tokens.refreshToken);", "}"], "type": "text/javascript" } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/refresh", "host": ["{{baseUrl}}"], "path": ["api", "auth", "refresh"] }
+          }
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"jane@example.com\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/forgot-password", "host": ["{{baseUrl}}"], "path": ["api", "auth", "forgot-password"] }
+          }
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"password\": \"NewPassword123!\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/reset-password/RESET_TOKEN_HERE", "host": ["{{baseUrl}}"], "path": ["api", "auth", "reset-password", "RESET_TOKEN_HERE"] }
+          }
+        },
+        {
+          "name": "Verify Email (OTP)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"jane@example.com\",\n  \"otp\": \"123456\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/verify-email", "host": ["{{baseUrl}}"], "path": ["api", "auth", "verify-email"] }
+          }
+        },
+        {
+          "name": "Resend OTP",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"jane@example.com\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/resend-otp", "host": ["{{baseUrl}}"], "path": ["api", "auth", "resend-otp"] }
+          }
+        },
+        {
+          "name": "Social Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"provider\": \"google\",\n  \"socialId\": \"google-uid-here\",\n  \"name\": \"Jane Doe\",\n  \"email\": \"jane@gmail.com\",\n  \"avatar\": \"https://example.com/photo.jpg\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/social-login", "host": ["{{baseUrl}}"], "path": ["api", "auth", "social-login"] }
+          }
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Jane Updated\",\n  \"phone\": \"0509876543\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/update-profile", "host": ["{{baseUrl}}"], "path": ["api", "auth", "update-profile"] }
+          }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"currentPassword\": \"Password123!\",\n  \"newPassword\": \"NewPassword456!\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/change-password", "host": ["{{baseUrl}}"], "path": ["api", "auth", "change-password"] }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/auth/logout", "host": ["{{baseUrl}}"], "path": ["api", "auth", "logout"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Medicines",
+      "item": [
+        {
+          "name": "List Medicines",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/medicines?page=1&limit=20", "host": ["{{baseUrl}}"], "path": ["api", "medicines"], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "20" }, { "key": "search", "value": "", "disabled": true }, { "key": "category", "value": "", "disabled": true }, { "key": "minPrice", "value": "", "disabled": true }, { "key": "maxPrice", "value": "", "disabled": true }, { "key": "requiresPrescription", "value": "false", "disabled": true }] }
+          }
+        },
+        {
+          "name": "Get Medicine",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/medicines/{{medicineId}}", "host": ["{{baseUrl}}"], "path": ["api", "medicines", "{{medicineId}}"] }
+          }
+        },
+        {
+          "name": "Create Medicine (Admin)",
+          "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code === 201) {", "  pm.collectionVariables.set('medicineId', pm.response.json().medicine._id);", "}"], "type": "text/javascript" } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "body": { "mode": "formdata", "formdata": [{ "key": "name", "value": "Paracetamol 500mg", "type": "text" }, { "key": "price", "value": "15", "type": "text" }, { "key": "stock", "value": "200", "type": "text" }, { "key": "category", "value": "{{categoryId}}", "type": "text" }, { "key": "requiresPrescription", "value": "false", "type": "text" }, { "key": "description", "value": "Pain reliever and fever reducer", "type": "text" }] },
+            "url": { "raw": "{{baseUrl}}/api/medicines", "host": ["{{baseUrl}}"], "path": ["api", "medicines"] }
+          }
+        },
+        {
+          "name": "Update Medicine (Admin)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"price\": 18,\n  \"stock\": 150\n}" },
+            "url": { "raw": "{{baseUrl}}/api/medicines/{{medicineId}}", "host": ["{{baseUrl}}"], "path": ["api", "medicines", "{{medicineId}}"] }
+          }
+        },
+        {
+          "name": "Delete Medicine (Admin)",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/medicines/{{medicineId}}", "host": ["{{baseUrl}}"], "path": ["api", "medicines", "{{medicineId}}"] }
+          }
+        },
+        {
+          "name": "Search Medicines",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/medicines?search=paracetamol", "host": ["{{baseUrl}}"], "path": ["api", "medicines"], "query": [{ "key": "search", "value": "paracetamol" }] }
+          }
+        },
+        {
+          "name": "Check Drug Interactions",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"medicines\": [\"{{medicineId}}\", \"ANOTHER_MEDICINE_ID\"]\n}" },
+            "url": { "raw": "{{baseUrl}}/api/medicines/drug-checker", "host": ["{{baseUrl}}"], "path": ["api", "medicines", "drug-checker"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Categories",
+      "item": [
+        {
+          "name": "List Categories",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/categories", "host": ["{{baseUrl}}"], "path": ["api", "categories"] }
+          }
+        },
+        {
+          "name": "Get Category",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/categories/{{categoryId}}", "host": ["{{baseUrl}}"], "path": ["api", "categories", "{{categoryId}}"] }
+          }
+        },
+        {
+          "name": "Create Category (Admin)",
+          "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code === 201) {", "  pm.collectionVariables.set('categoryId', pm.response.json().category._id);", "}"], "type": "text/javascript" } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Pain Relief\",\n  \"description\": \"Medications for pain management\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/categories", "host": ["{{baseUrl}}"], "path": ["api", "categories"] }
+          }
+        },
+        {
+          "name": "Update Category (Admin)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Pain Relief Updated\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/categories/{{categoryId}}", "host": ["{{baseUrl}}"], "path": ["api", "categories", "{{categoryId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cart",
+      "item": [
+        {
+          "name": "Get Cart",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/cart", "host": ["{{baseUrl}}"], "path": ["api", "cart"] }
+          }
+        },
+        {
+          "name": "Add to Cart",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"medicine\": \"{{medicineId}}\",\n  \"quantity\": 2\n}" },
+            "url": { "raw": "{{baseUrl}}/api/cart", "host": ["{{baseUrl}}"], "path": ["api", "cart"] }
+          }
+        },
+        {
+          "name": "Update Cart Item",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"medicine\": \"{{medicineId}}\",\n  \"quantity\": 3\n}" },
+            "url": { "raw": "{{baseUrl}}/api/cart/{{medicineId}}", "host": ["{{baseUrl}}"], "path": ["api", "cart", "{{medicineId}}"] }
+          }
+        },
+        {
+          "name": "Remove from Cart",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/cart/{{medicineId}}", "host": ["{{baseUrl}}"], "path": ["api", "cart", "{{medicineId}}"] }
+          }
+        },
+        {
+          "name": "Clear Cart",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/cart", "host": ["{{baseUrl}}"], "path": ["api", "cart"] }
+          }
+        },
+        {
+          "name": "Apply Coupon",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"couponCode\": \"SAVE10\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/cart/coupon", "host": ["{{baseUrl}}"], "path": ["api", "cart", "coupon"] }
+          }
+        },
+        {
+          "name": "Remove Coupon",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/cart/coupon", "host": ["{{baseUrl}}"], "path": ["api", "cart", "coupon"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Orders",
+      "item": [
+        {
+          "name": "Create Order",
+          "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code === 201) {", "  pm.collectionVariables.set('orderId', pm.response.json().order._id);", "}"], "type": "text/javascript" } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"items\": [\n    { \"medicine\": \"{{medicineId}}\", \"quantity\": 2 }\n  ],\n  \"shippingAddress\": {\n    \"fullName\": \"Jane Doe\",\n    \"phone\": \"0501234567\",\n    \"street\": \"123 King Fahd Rd\",\n    \"city\": \"Riyadh\",\n    \"country\": \"SA\"\n  },\n  \"paymentMethod\": \"cash\",\n  \"notes\": \"Leave at door\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/orders", "host": ["{{baseUrl}}"], "path": ["api", "orders"] }
+          }
+        },
+        {
+          "name": "My Orders",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/orders/my-orders?page=1&limit=10", "host": ["{{baseUrl}}"], "path": ["api", "orders", "my-orders"], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "10" }, { "key": "status", "value": "", "disabled": true }] }
+          }
+        },
+        {
+          "name": "Get Order",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/orders/{{orderId}}", "host": ["{{baseUrl}}"], "path": ["api", "orders", "{{orderId}}"] }
+          }
+        },
+        {
+          "name": "Track Order",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/orders/{{orderId}}/track", "host": ["{{baseUrl}}"], "path": ["api", "orders", "{{orderId}}", "track"] }
+          }
+        },
+        {
+          "name": "Update Order Status (Admin)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"confirmed\",\n  \"note\": \"Order verified\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/orders/{{orderId}}/status", "host": ["{{baseUrl}}"], "path": ["api", "orders", "{{orderId}}", "status"] }
+          }
+        },
+        {
+          "name": "Cancel Order",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"reason\": \"Changed my mind\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/orders/{{orderId}}/cancel", "host": ["{{baseUrl}}"], "path": ["api", "orders", "{{orderId}}", "cancel"] }
+          }
+        },
+        {
+          "name": "Reorder",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/orders/{{orderId}}/reorder", "host": ["{{baseUrl}}"], "path": ["api", "orders", "{{orderId}}", "reorder"] }
+          }
+        },
+        {
+          "name": "All Orders (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/orders?page=1&limit=20", "host": ["{{baseUrl}}"], "path": ["api", "orders"], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "20" }, { "key": "status", "value": "", "disabled": true }, { "key": "userId", "value": "", "disabled": true }, { "key": "startDate", "value": "", "disabled": true }, { "key": "endDate", "value": "", "disabled": true }] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Prescriptions",
+      "item": [
+        {
+          "name": "Upload Prescription",
+          "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code === 201) {", "  pm.collectionVariables.set('prescriptionId', pm.response.json().prescription._id);", "}"], "type": "text/javascript" } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "body": { "mode": "formdata", "formdata": [{ "key": "image", "type": "file", "src": "/path/to/prescription.jpg" }, { "key": "notes", "value": "Regular prescription", "type": "text" }] },
+            "url": { "raw": "{{baseUrl}}/api/prescriptions", "host": ["{{baseUrl}}"], "path": ["api", "prescriptions"] }
+          }
+        },
+        {
+          "name": "My Prescriptions",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/prescriptions/my", "host": ["{{baseUrl}}"], "path": ["api", "prescriptions", "my"] }
+          }
+        },
+        {
+          "name": "Get Prescription",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/prescriptions/{{prescriptionId}}", "host": ["{{baseUrl}}"], "path": ["api", "prescriptions", "{{prescriptionId}}"] }
+          }
+        },
+        {
+          "name": "Review Prescription (Pharmacist)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"approved\",\n  \"pharmacistNotes\": \"Valid prescription, approved\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/prescriptions/{{prescriptionId}}/review", "host": ["{{baseUrl}}"], "path": ["api", "prescriptions", "{{prescriptionId}}", "review"] }
+          }
+        },
+        {
+          "name": "All Prescriptions (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/prescriptions?status=pending", "host": ["{{baseUrl}}"], "path": ["api", "prescriptions"], "query": [{ "key": "status", "value": "pending" }] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payments",
+      "item": [
+        {
+          "name": "Create Payment Intent",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"orderId\": \"{{orderId}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/payments/create-intent", "host": ["{{baseUrl}}"], "path": ["api", "payments", "create-intent"] }
+          }
+        },
+        {
+          "name": "Confirm Payment",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"paymentIntentId\": \"pi_xxx\",\n  \"orderId\": \"{{orderId}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/payments/confirm", "host": ["{{baseUrl}}"], "path": ["api", "payments", "confirm"] }
+          }
+        },
+        {
+          "name": "Stripe Webhook",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "stripe-signature", "value": "YOUR_STRIPE_WEBHOOK_SIGNATURE" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{}" },
+            "url": { "raw": "{{baseUrl}}/api/payments/webhook", "host": ["{{baseUrl}}"], "path": ["api", "payments", "webhook"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Wallet",
+      "item": [
+        {
+          "name": "Get Wallet",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/wallet", "host": ["{{baseUrl}}"], "path": ["api", "wallet"] }
+          }
+        },
+        {
+          "name": "Wallet Transactions",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/wallet/transactions", "host": ["{{baseUrl}}"], "path": ["api", "wallet", "transactions"] }
+          }
+        },
+        {
+          "name": "Top Up Wallet",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"amount\": 100\n}" },
+            "url": { "raw": "{{baseUrl}}/api/wallet/topup", "host": ["{{baseUrl}}"], "path": ["api", "wallet", "topup"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Wishlist",
+      "item": [
+        {
+          "name": "Get Wishlist",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/wishlist", "host": ["{{baseUrl}}"], "path": ["api", "wishlist"] }
+          }
+        },
+        {
+          "name": "Add to Wishlist",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"medicine\": \"{{medicineId}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/wishlist", "host": ["{{baseUrl}}"], "path": ["api", "wishlist"] }
+          }
+        },
+        {
+          "name": "Remove from Wishlist",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/wishlist/{{medicineId}}", "host": ["{{baseUrl}}"], "path": ["api", "wishlist", "{{medicineId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reviews",
+      "item": [
+        {
+          "name": "Get Medicine Reviews",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/medicines/{{medicineId}}/reviews", "host": ["{{baseUrl}}"], "path": ["api", "medicines", "{{medicineId}}", "reviews"] }
+          }
+        },
+        {
+          "name": "Add Review",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"rating\": 5,\n  \"comment\": \"Excellent product, works great!\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/medicines/{{medicineId}}/reviews", "host": ["{{baseUrl}}"], "path": ["api", "medicines", "{{medicineId}}", "reviews"] }
+          }
+        },
+        {
+          "name": "Update Review",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"rating\": 4,\n  \"comment\": \"Updated review\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/reviews/REVIEW_ID", "host": ["{{baseUrl}}"], "path": ["api", "reviews", "REVIEW_ID"] }
+          }
+        },
+        {
+          "name": "Delete Review",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/reviews/REVIEW_ID", "host": ["{{baseUrl}}"], "path": ["api", "reviews", "REVIEW_ID"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Coupons",
+      "item": [
+        {
+          "name": "Validate Coupon",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/coupons/validate/SAVE10", "host": ["{{baseUrl}}"], "path": ["api", "coupons", "validate", "SAVE10"] }
+          }
+        },
+        {
+          "name": "Create Coupon (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"code\": \"SAVE10\",\n  \"type\": \"percentage\",\n  \"value\": 10,\n  \"minOrderAmount\": 50,\n  \"maxDiscount\": 30,\n  \"expiresAt\": \"2026-12-31T23:59:59Z\",\n  \"usageLimit\": 100,\n  \"perUserLimit\": 1\n}" },
+            "url": { "raw": "{{baseUrl}}/api/coupons", "host": ["{{baseUrl}}"], "path": ["api", "coupons"] }
+          }
+        },
+        {
+          "name": "List Coupons (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/coupons", "host": ["{{baseUrl}}"], "path": ["api", "coupons"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Flash Sales",
+      "item": [
+        {
+          "name": "Active Flash Sale (Public)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/flash-sales/active", "host": ["{{baseUrl}}"], "path": ["api", "flash-sales", "active"] }
+          }
+        },
+        {
+          "name": "All Flash Sales (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/flash-sales", "host": ["{{baseUrl}}"], "path": ["api", "flash-sales"] }
+          }
+        },
+        {
+          "name": "Create Flash Sale (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "body": { "mode": "formdata", "formdata": [{ "key": "title", "value": "Summer Sale", "type": "text" }, { "key": "discountPercentage", "value": "20", "type": "text" }, { "key": "startDate", "value": "2026-06-01T00:00:00Z", "type": "text" }, { "key": "endDate", "value": "2026-06-07T23:59:59Z", "type": "text" }, { "key": "medicines", "value": "[\"{{medicineId}}\"]", "type": "text" }, { "key": "banner", "type": "file", "src": "/path/to/banner.jpg", "disabled": true }] },
+            "url": { "raw": "{{baseUrl}}/api/flash-sales", "host": ["{{baseUrl}}"], "path": ["api", "flash-sales"] }
+          }
+        },
+        {
+          "name": "Toggle Flash Sale",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"isActive\": true\n}" },
+            "url": { "raw": "{{baseUrl}}/api/flash-sales/FLASH_SALE_ID/toggle", "host": ["{{baseUrl}}"], "path": ["api", "flash-sales", "FLASH_SALE_ID", "toggle"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Referrals",
+      "item": [
+        {
+          "name": "Validate Referral Code (Public)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/referrals/validate/MYCODE", "host": ["{{baseUrl}}"], "path": ["api", "referrals", "validate", "MYCODE"] }
+          }
+        },
+        {
+          "name": "My Referral Info",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/referrals/me", "host": ["{{baseUrl}}"], "path": ["api", "referrals", "me"] }
+          }
+        },
+        {
+          "name": "My Referred Users",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/referrals/me/referred-users", "host": ["{{baseUrl}}"], "path": ["api", "referrals", "me", "referred-users"] }
+          }
+        },
+        {
+          "name": "Referral Stats (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/referrals/admin/stats", "host": ["{{baseUrl}}"], "path": ["api", "referrals", "admin", "stats"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "My Notifications",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/notifications?page=1&limit=20", "host": ["{{baseUrl}}"], "path": ["api", "notifications"], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "20" }, { "key": "unread", "value": "true", "disabled": true }] }
+          }
+        },
+        {
+          "name": "Mark Notification Read",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/notifications/NOTIFICATION_ID/read", "host": ["{{baseUrl}}"], "path": ["api", "notifications", "NOTIFICATION_ID", "read"] }
+          }
+        },
+        {
+          "name": "Mark All Read",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/notifications/read-all", "host": ["{{baseUrl}}"], "path": ["api", "notifications", "read-all"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Delivery",
+      "item": [
+        {
+          "name": "List Delivery Zones (Public)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/delivery/zones", "host": ["{{baseUrl}}"], "path": ["api", "delivery", "zones"] }
+          }
+        },
+        {
+          "name": "Check Delivery Availability",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"city\": \"Riyadh\",\n  \"postalCode\": \"11111\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/delivery/check", "host": ["{{baseUrl}}"], "path": ["api", "delivery", "check"] }
+          }
+        },
+        {
+          "name": "Create Delivery Zone (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Riyadh Central\",\n  \"cities\": [\"Riyadh\"],\n  \"deliveryFee\": 15,\n  \"freeDeliveryThreshold\": 200,\n  \"estimatedDays\": 1\n}" },
+            "url": { "raw": "{{baseUrl}}/api/delivery/zones", "host": ["{{baseUrl}}"], "path": ["api", "delivery", "zones"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Articles",
+      "item": [
+        {
+          "name": "List Articles (Public)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/articles?page=1&limit=10", "host": ["{{baseUrl}}"], "path": ["api", "articles"], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "10" }, { "key": "search", "value": "", "disabled": true }] }
+          }
+        },
+        {
+          "name": "Get Article (Public)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/articles/ARTICLE_SLUG", "host": ["{{baseUrl}}"], "path": ["api", "articles", "ARTICLE_SLUG"] }
+          }
+        },
+        {
+          "name": "Create Article (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "body": { "mode": "formdata", "formdata": [{ "key": "title", "value": "Health Tips for Ramadan", "type": "text" }, { "key": "content", "value": "Full article content here...", "type": "text" }, { "key": "category", "value": "health-tips", "type": "text" }, { "key": "image", "type": "file", "src": "/path/to/image.jpg", "disabled": true }] },
+            "url": { "raw": "{{baseUrl}}/api/articles", "host": ["{{baseUrl}}"], "path": ["api", "articles"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin Dashboard",
+      "item": [
+        {
+          "name": "Dashboard Stats",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/dashboard/stats", "host": ["{{baseUrl}}"], "path": ["api", "admin", "dashboard", "stats"] }
+          }
+        },
+        {
+          "name": "Sales Report",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/dashboard/sales?period=30d", "host": ["{{baseUrl}}"], "path": ["api", "admin", "dashboard", "sales"], "query": [{ "key": "period", "value": "30d" }] }
+          }
+        },
+        {
+          "name": "Inventory Alerts",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/inventory/alerts", "host": ["{{baseUrl}}"], "path": ["api", "admin", "inventory", "alerts"] }
+          }
+        },
+        {
+          "name": "All Users (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/users?page=1&limit=20", "host": ["{{baseUrl}}"], "path": ["api", "users"], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "20" }, { "key": "role", "value": "", "disabled": true }] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] }
+          }
+        },
+        {
+          "name": "Swagger Docs",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api-docs", "host": ["{{baseUrl}}"], "path": ["api-docs"] }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash([ -f \"./src/models/Medicine.model.js\" ])",
+      "Bash(find . -name \".DS_Store\" -delete)",
+      "Bash(find . -name \"env (*)\" -delete)",
+      "Bash([ ! -f .env.example ])",
+      "Bash(export NODE_TLS_REJECT_UNAUTHORIZED=0)",
+      "Bash(export CI=true)",
+      "Bash(npm install --no-audit --no-fund --legacy-peer-deps --fetch-retries=10 --fetch-retry-mintimeout=20000 helmet cors morgan winston express-rate-limit express-mongo-sanitize compression cookie-parser express-async-handler joi bcryptjs jsonwebtoken dotenv mongoose express)",
+      "Bash(npm install --save-dev --no-audit --no-fund --legacy-peer-deps nodemon jest supertest eslint prettier eslint-config-prettier)",
+      "Bash(npm list --depth=0 --dev)",
+      "Bash(npx eslint src/ index.js --fix)",
+      "Bash(npx prettier --write \"**/*.{js,json,md}\" --ignore-path .gitignore)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

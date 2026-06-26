@@ -182,15 +182,17 @@ exports.createOrder = async (req, res, next) => {
       loyaltyPointsUsed = Math.min(user.loyaltyPoints, maxPointsDiscount);
     }
 
-    // Wallet payment
+    // Wallet payment — validate balance up front
     let walletUsed = 0;
+    let walletDoc = null;
     if (useWallet && paymentMethod === "wallet") {
-      const Wallet = require("../models/Wallet.model");
-      const wallet = await Wallet.findOne({ user: req.user._id });
-      if (wallet) {
-        const total = subtotal + deliveryFee - couponDiscount - loyaltyPointsUsed;
-        walletUsed = Math.min(wallet.balance, total);
+      const WalletModel = require("../models/Wallet.model");
+      walletDoc = await WalletModel.findOne({ user: req.user._id });
+      const orderTotal = subtotal + deliveryFee - couponDiscount - loyaltyPointsUsed;
+      if (!walletDoc || walletDoc.balance < orderTotal) {
+        return res.status(400).json({ success: false, message: "Insufficient wallet balance" });
       }
+      walletUsed = orderTotal;
     }
 
     const total = Math.max(0, subtotal + deliveryFee - couponDiscount - loyaltyPointsUsed);
@@ -204,7 +206,7 @@ exports.createOrder = async (req, res, next) => {
       items: orderItems,
       shippingAddress,
       paymentMethod,
-      paymentStatus: paymentMethod === "cash" ? "pending" : "pending",
+      paymentStatus: paymentMethod === "wallet" ? "paid" : "pending",
       subtotal,
       deliveryFee,
       discount: 0,
@@ -219,6 +221,19 @@ exports.createOrder = async (req, res, next) => {
       loyaltyPointsUsed,
       trackingHistory: [{ status: "pending", note: "Order placed", updatedBy: req.user._id }],
     });
+
+    // Deduct wallet balance
+    if (walletUsed > 0 && walletDoc) {
+      walletDoc.transactions.push({
+        type: "debit",
+        amount: walletUsed,
+        description: `Payment for order ${orderNumber}`,
+        order: order._id,
+        balanceAfter: walletDoc.balance - walletUsed,
+      });
+      walletDoc.balance -= walletUsed;
+      await walletDoc.save();
+    }
 
     // Deduct stock
     for (const item of items) {

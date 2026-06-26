@@ -370,11 +370,11 @@ const order = {
       "array.min":    m("Order must have at least one item", "الطلب يجب أن يحتوي على عنصر واحد على الأقل"),
       "any.required": m("Order items are required", "عناصر الطلب مطلوبة"),
     }),
-    paymentMethod:   Joi.string().valid("cash", "card", "wallet", "insurance").required().messages({
-      "any.only":     m("Payment method must be cash, card, wallet, or insurance", "طريقة الدفع يجب أن تكون: نقداً، بطاقة، محفظة، أو تأمين"),
+    paymentMethod:    Joi.string().valid("cash", "card", "wallet").required().messages({
+      "any.only":     m("Payment method must be cash, card, or wallet", "طريقة الدفع يجب أن تكون: نقداً، بطاقة، أو محفظة"),
       "any.required": m("Payment method is required", "طريقة الدفع مطلوبة"),
     }),
-    deliveryAddress: Joi.object({
+    shippingAddress:  Joi.object({
       fullName:   Joi.string().required(),
       phone:      phone().required(),
       street:     Joi.string().required(),
@@ -384,11 +384,17 @@ const order = {
       lat:        Joi.number().optional(),
       lng:        Joi.number().optional(),
     }).optional(),
-    couponCode:      Joi.string().trim().uppercase().optional(),
-    prescriptionId:  objectId().optional(),
-    notes:           Joi.string().max(500).optional(),
-    isScheduled:     Joi.boolean().optional(),
-    scheduledFor:    Joi.date().when("isScheduled", { is: true, then: Joi.required() }).optional(),
+    couponCode:       Joi.string().trim().uppercase().optional(),
+    prescriptionId:   objectId().optional(),
+    deliveryZone:     objectId().optional(),
+    deliverySlot:     Joi.object({
+      date: Joi.date().optional(),
+      from: Joi.string().optional(),
+      to:   Joi.string().optional(),
+    }).optional(),
+    useLoyaltyPoints: Joi.boolean().default(false),
+    useWallet:        Joi.boolean().default(false),
+    notes:            Joi.string().max(500).optional(),
   }),
 
   updateStatus: Joi.object({
@@ -476,11 +482,18 @@ const coupon = {
     code:             Joi.string().trim().uppercase().alphanum().min(4).max(20).required().messages({ "any.required": m("Coupon code is required", "كود الخصم مطلوب") }),
     type:             Joi.string().valid("percentage", "fixed").required().messages({ "any.required": m("Discount type is required", "نوع الخصم مطلوب") }),
     value:            Joi.number().positive().required().messages({ "any.required": m("Discount value is required", "قيمة الخصم مطلوبة") }),
+    description:      Joi.string().max(500).optional(),
     minOrderAmount:   Joi.number().min(0).default(0),
     maxDiscount:      Joi.number().positive().optional(),
     usageLimit:       Joi.number().integer().positive().optional(),
-    expiresAt:        Joi.date().greater("now").optional(),
+    perUserLimit:     Joi.number().integer().positive().default(1),
+    validFrom:        Joi.date().default(() => new Date()),
+    validUntil:       Joi.date().greater(Joi.ref("validFrom")).required().messages({
+      "any.required": m("Expiry date is required", "تاريخ انتهاء الصلاحية مطلوب"),
+      "date.greater": m("Expiry date must be after start date", "تاريخ الانتهاء يجب أن يكون بعد تاريخ البدء"),
+    }),
     isActive:         Joi.boolean().default(true),
+    isFirstOrderOnly: Joi.boolean().default(false),
   }),
 };
 
@@ -539,20 +552,20 @@ const notification = {
 // ─── Flash Sale ───────────────────────────────────────────────────────────────
 const flashSale = {
   create: Joi.object({
-    name:      Joi.string().trim().required().messages({ "any.required": m("Flash sale name is required", "اسم العرض مطلوب") }),
-    medicines: Joi.array().items(
-      Joi.object({
-        medicine:        objectId().required(),
-        discountPercent: Joi.number().min(1).max(99).required(),
-        maxQuantity:     Joi.number().integer().positive().optional(),
-      })
-    ).min(1).required(),
-    startAt:   Joi.date().required().messages({ "any.required": m("Start date is required", "تاريخ البدء مطلوب") }),
-    endAt:     Joi.date().greater(Joi.ref("startAt")).required().messages({
-      "any.required":  m("End date is required", "تاريخ الانتهاء مطلوب"),
-      "date.greater":  m("End date must be after start date", "تاريخ الانتهاء يجب أن يكون بعد تاريخ البدء"),
+    name:        Joi.string().trim().required().messages({ "any.required": m("Flash sale name is required", "اسم العرض مطلوب") }),
+    description: Joi.string().max(500).optional(),
+    discount:    Joi.number().min(1).max(99).required().messages({
+      "any.required": m("Discount percentage is required", "نسبة الخصم مطلوبة"),
+      "number.min":   m("Discount must be at least 1%", "الخصم يجب أن يكون 1% على الأقل"),
+      "number.max":   m("Discount cannot exceed 99%", "الخصم لا يمكن أن يتجاوز 99%"),
     }),
-    isActive:  Joi.boolean().default(true),
+    startDate:   Joi.date().required().messages({ "any.required": m("Start date is required", "تاريخ البدء مطلوب") }),
+    endDate:     Joi.date().greater(Joi.ref("startDate")).required().messages({
+      "any.required": m("End date is required", "تاريخ الانتهاء مطلوب"),
+      "date.greater": m("End date must be after start date", "تاريخ الانتهاء يجب أن يكون بعد تاريخ البدء"),
+    }),
+    medicineIds: Joi.array().items(objectId()).optional(),
+    isActive:    Joi.boolean().default(true),
   }),
 };
 

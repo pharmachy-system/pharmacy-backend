@@ -1,11 +1,15 @@
 const User = require("../models/User.model");
+const Wallet = require("../models/Wallet.model");
 const { uploadToCloudinary, deleteFromCloudinary } = require("../utils/cloudinary.util");
 
 // ─── Get Profile ──────────────────────────────────────────────────────────────
 exports.getProfile = async (req, res, next) => {
   try {
-    const user = await User.findById(req.user._id).populate("wallet", "balance");
-    res.json({ success: true, user });
+    const [user, wallet] = await Promise.all([
+      User.findById(req.user._id),
+      Wallet.findOne({ user: req.user._id }).select("balance"),
+    ]);
+    res.json({ success: true, user, walletBalance: wallet?.balance ?? 0 });
   } catch (err) {
     next(err);
   }
@@ -202,9 +206,12 @@ exports.getAllUsers = async (req, res, next) => {
 
 exports.getUserById = async (req, res, next) => {
   try {
-    const user = await User.findById(req.params.id).populate("wallet", "balance");
+    const [user, wallet] = await Promise.all([
+      User.findById(req.params.id),
+      Wallet.findOne({ user: req.params.id }).select("balance"),
+    ]);
     if (!user) return res.status(404).json({ success: false, message: "User not found" });
-    res.json({ success: true, user });
+    res.json({ success: true, user, walletBalance: wallet?.balance ?? 0 });
   } catch (err) {
     next(err);
   }

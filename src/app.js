@@ -58,36 +58,6 @@ require('./routes')(app);
 
 
 
-// TEMP: import products
-app.get('/api/clear-medicines-temp', async (req, res) => {
-  try {
-    const mongoose = require('mongoose');
-    const Medicine = mongoose.connection.models['Medicine'] || require('./models/medicine.model');
-    const result = await Medicine.deleteMany({});
-    res.json({ message: 'Cleared', deleted: result.deletedCount });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
-app.get('/api/import-products-temp', async (req, res) => {
-  try {
-    const fs = require('fs');
-    const Medicine = mongoose.connection.models['Medicine'] || require('./models/Medicine.model');
-    const raw = JSON.parse(fs.readFileSync('/Users/AmalAlSari/Downloads/pharmacy-backend-main/products-import.json', 'utf8'));
-    const data = raw.filter(p => p.name && p.price > 0 && p.price < 100000);
-    const docs = data.map(p => ({
-      name: p.name,
-      price: p.price,
-      stock: Math.max(0, Math.round(p.quantity)),
-      unit: p.unit,
-      slug: p.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Math.random().toString(36).substr(2,5)
-    }));
-    await Medicine.insertMany(docs, { ordered: false });
-    res.json({ message: 'Done', imported: docs.length });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
 // 404 handler
 app.use(notFound);
 

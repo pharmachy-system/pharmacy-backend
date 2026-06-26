@@ -113,7 +113,7 @@ exports.validateReferralCode = async (req, res, next) => {
 // This is exported so order.controller.js can call it
 exports.processReferralReward = async (userId, orderId) => {
   try {
-    const user = await User.findById(userId).select("referredBy referralRewardClaimed");
+    const user = await User.findById(userId).select("name referredBy referralRewardClaimed");
 
     // Only reward on the very first order
     if (!user?.referredBy || user.referralRewardClaimed) return;

@@ -71,6 +71,9 @@ module.exports = (app) => {
   app.use("/api/flash-sales", require("./flashsale.routes"));
   app.use("/api/referrals",   require("./referral.routes"));
 
+  // ── Reports ───────────────────────────────────────────────────────────────────
+  app.use("/api/reports",          require("./report.routes"));
+
   // ── Admin ─────────────────────────────────────────────────────────────────────
   app.use("/api/admin/dashboard",  require("./admin/dashboard.routes"));
   app.use("/api/admin/inventory",  require("./admin/inventory.routes"));

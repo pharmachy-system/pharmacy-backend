@@ -186,7 +186,9 @@ describe("Delivery API", () => {
 
       expect(res.status).toBe(200);
       expect(res.body.order.status).toBe("shipped");
-      expect(res.body.order.driver).toBe(driverId);
+      const driverField = res.body.order.driver;
+      const returnedDriverId = typeof driverField === "object" ? driverField._id : driverField;
+      expect(returnedDriverId).toBe(driverId);
     });
 
     it("cannot assign driver to non-confirmed order", async () => {

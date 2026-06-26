@@ -59,6 +59,18 @@ const userSchema = new mongoose.Schema({
   loginCount:   { type: Number, default: 0 },
   lastLoginAt:  { type: Date },
 
+  // ── Driver fields (role: delivery only) ───────────────────────────────────
+  driverStatus: {
+    type:    String,
+    enum:    ["available", "busy", "offline"],
+    default: "offline",
+  },
+  driverLocation: {
+    lat:       { type: Number },
+    lng:       { type: Number },
+    updatedAt: { type: Date },
+  },
+
   // ── Device info (one record per deviceId, updated on each login) ───────────
   deviceInfo: [{
     deviceId:       { type: String, required: true },

@@ -15,6 +15,12 @@ const deliveryZoneSchema = new mongoose.Schema({
     isActive: { type: Boolean, default: true },
     maxOrders: { type: Number, default: 50 },
   }],
+  // Optional polygon boundary for point-in-polygon zone matching
+  polygon: [{
+    lat: { type: Number, required: true },
+    lng: { type: Number, required: true },
+    _id: false,
+  }],
 }, { timestamps: true });
 
 deliveryZoneSchema.index({ isActive: 1 });

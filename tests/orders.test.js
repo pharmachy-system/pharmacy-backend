@@ -216,7 +216,7 @@ describe("Orders API", () => {
       expect(res.body.success).toBe(true);
       expect(res.body.tracking).toBeDefined();
       expect(res.body.tracking.status).toBe("pending");
-      expect(Array.isArray(res.body.tracking.trackingHistory)).toBe(true);
+      expect(Array.isArray(res.body.tracking.timeline)).toBe(true);
     });
   });
 

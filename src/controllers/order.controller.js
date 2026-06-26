@@ -3,6 +3,7 @@ const Medicine = require("../models/Medicine.model");
 const Cart = require("../models/Cart.model");
 const Coupon = require("../models/Coupon.model");
 const Prescription = require("../models/Prescription.model");
+const Payment = require("../models/Payment.model");
 const User = require("../models/User.model");
 const LoyaltyTransaction = require("../models/LoyaltyTransaction.model");
 const logger = require("../config/logger.config");
@@ -306,6 +307,12 @@ exports.createOrder = async (req, res, next) => {
 
     sendOrderConfirmationEmail(user, order).catch(() => {});
 
+    // Create a pending payment record for COD orders so transaction log is complete
+    if (paymentMethod === "cash") {
+      Payment.create({ order: order._id, user: req.user._id, method: "cash", amount: total, status: "pending" })
+        .catch((e) => logger.error("[ORDER] COD payment record creation failed", { err: e.message }));
+    }
+
     res.status(201).json({ success: true, order });
   } catch (err) {
     next(err);
@@ -562,8 +569,8 @@ exports.reorder = async (req, res, next) => {
 exports.trackOrder = async (req, res, next) => {
   try {
     const order = await Order.findById(req.params.id)
-      .select("orderNumber status trackingHistory estimatedDelivery deliveredAt driver user")
-      .populate("driver", "name phone");
+      .select("orderNumber status trackingHistory estimatedDelivery deliveredAt cancelledAt driver user paymentMethod paymentStatus total createdAt")
+      .populate("driver", "name phone driverStatus driverLocation");
 
     if (!order) return res.status(404).json({ success: false, message: "Order not found" });
 
@@ -571,7 +578,41 @@ exports.trackOrder = async (req, res, next) => {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
 
-    res.json({ success: true, tracking: order });
+    // Build a rich timeline: sort by timestamp ascending
+    const timeline = [...order.trackingHistory].sort(
+      (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
+    );
+
+    // ETA calculation
+    let eta = order.estimatedDelivery || null;
+    if (!eta && order.status === "shipped" && order.createdAt) {
+      // Default: 24 hours from order creation if no estimated delivery set
+      eta = new Date(new Date(order.createdAt).getTime() + 24 * 60 * 60 * 1000);
+    }
+
+    const driverInfo = order.driver
+      ? {
+          name:     order.driver.name,
+          phone:    order.driver.phone,
+          status:   order.driver.driverStatus,
+          location: order.driver.driverLocation || null,
+        }
+      : null;
+
+    res.json({
+      success: true,
+      tracking: {
+        orderId:       order._id,
+        orderNumber:   order.orderNumber,
+        status:        order.status,
+        paymentStatus: order.paymentStatus,
+        timeline,
+        driver:        driverInfo,
+        estimatedArrival: eta,
+        deliveredAt:   order.deliveredAt || null,
+        cancelledAt:   order.cancelledAt || null,
+      },
+    });
   } catch (err) {
     next(err);
   }

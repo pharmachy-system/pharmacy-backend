@@ -53,6 +53,7 @@ module.exports = (app) => {
   // ── Orders & payments ────────────────────────────────────────────────────────
   app.use("/api/orders",      require("./order.routes"));
   app.use("/api/payments",    require("./payment.routes"));
+  app.use("/api/returns",     require("./return.routes"));
   app.use("/api/wallet",      require("./wallet.routes"));
 
   // ── Medical ──────────────────────────────────────────────────────────────────

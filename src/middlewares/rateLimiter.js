@@ -1,9 +1,11 @@
 const rateLimit = require("express-rate-limit");
 
-const json = (message) => ({
-  success: false,
-  message,
-});
+const json = (message) => ({ success: false, message });
+
+// Skip all IP-based limiters in test mode — tests share one IP and would
+// exhaust windows after a handful of requests. Controller-level limits
+// (per-user OTP resend, login lockout) are never skipped.
+const skipInTest = () => process.env.NODE_ENV === "test";
 
 // General API limiter — all /api routes
 const apiLimiter = rateLimit({
@@ -11,6 +13,7 @@ const apiLimiter = rateLimit({
   max: 200,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: skipInTest,
   message: json("Too many requests, please try again later"),
 });
 
@@ -20,6 +23,7 @@ const authLimiter = rateLimit({
   max: 20,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: skipInTest,
   message: json("Too many authentication attempts, please try again after 15 minutes"),
 });
 
@@ -29,6 +33,7 @@ const otpLimiter = rateLimit({
   max: 5,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: skipInTest,
   message: json("Too many OTP requests, please try again after 15 minutes"),
 });
 
@@ -38,6 +43,7 @@ const passwordResetLimiter = rateLimit({
   max: 3,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: skipInTest,
   message: json("Too many password reset requests, please try again after 1 hour"),
 });
 
@@ -47,6 +53,7 @@ const paymentLimiter = rateLimit({
   max: 30,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: skipInTest,
   message: json("Too many payment requests, please slow down"),
 });
 
@@ -56,6 +63,7 @@ const strictLimiter = rateLimit({
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: skipInTest,
   message: json("Rate limit exceeded for this action"),
 });
 

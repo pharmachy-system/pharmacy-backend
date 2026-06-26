@@ -64,7 +64,14 @@ async function doSendOTP(phone, req, res, next) {
   }
 
   if (!user) {
-    user = new User({ name: `User_${phone.slice(-4)}`, phone, isPhoneVerified: false });
+    // Placeholder email avoids null-email duplicate-key errors on the unique index.
+    // verifyOTP overwrites this with the same pattern on first successful verify.
+    user = new User({
+      name:            `User_${phone.slice(-4)}`,
+      phone,
+      email:           `${phone.replace(/\D/g, "")}@phone.pharmacy.local`,
+      isPhoneVerified: false,
+    });
   }
 
   const otp = user.generatePhoneOTP();

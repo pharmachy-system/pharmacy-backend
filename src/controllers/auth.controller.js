@@ -192,7 +192,7 @@ exports.refreshToken = async (req, res, next) => {
 // ─── Logout (current device) ──────────────────────────────────────────────────
 exports.logout = async (req, res, next) => {
   try {
-    const { deviceId } = req.body;
+    const { deviceId } = req.body || {};
 
     if (deviceId) {
       await Session.findOneAndUpdate({ deviceId, user: req.user._id }, { isActive: false });

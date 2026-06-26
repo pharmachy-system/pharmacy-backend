@@ -69,8 +69,8 @@ const auth = {
     }),
     password: strongPassword().required(),
     phone:    phone().optional(),
-    role:     Joi.string().valid("customer", "pharmacist").default("customer").messages({
-      "any.only": m("Role must be customer or pharmacist", "الدور يجب أن يكون عميلاً أو صيدلانياً"),
+    role:     Joi.string().valid("customer", "pharmacist", "admin", "delivery").default("customer").messages({
+      "any.only": m("Invalid role", "الدور غير صالح"),
     }),
     referralCode:  Joi.string().trim().uppercase().alphanum().length(8).optional(),
     adminSecret:   Joi.string().optional(),

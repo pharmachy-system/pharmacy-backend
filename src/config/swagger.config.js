@@ -540,19 +540,17 @@ const paths = {
       tags: ["Auth"],
       summary: "Social login / register (Google, Apple)",
       security: [],
+      description: "Server verifies the `idToken` against Google's tokeninfo API (Google) or Apple's JWK public keys (Apple) — the client must never send a raw `socialId`.",
       requestBody: {
         required: true,
         content: {
           "application/json": {
             schema: {
               type: "object",
-              required: ["provider", "socialId", "email"],
+              required: ["provider", "idToken"],
               properties: {
                 provider: { type: "string", enum: ["google", "apple"] },
-                socialId: { type: "string" },
-                email:    { type: "string", format: "email" },
-                name:     { type: "string" },
-                avatar:   { type: "string" },
+                idToken:  { type: "string", description: "JWT issued by Google (id_token) or Apple (identity_token)" },
               },
             },
           },
@@ -589,6 +587,9 @@ const paths = {
   },
   "/api/users": {
     get: { tags: ["Users"], summary: "List all users (admin)", parameters: [{ name: "role", in: "query", schema: { type: "string" } }, { name: "search", in: "query", schema: { type: "string" } }, { name: "isActive", in: "query", schema: { type: "boolean" } }, { $ref: "#/components/parameters/PageParam" }, { $ref: "#/components/parameters/LimitParam" }], responses: { 200: { description: "User list" }, 403: { $ref: "#/components/responses/Forbidden" } } },
+  },
+  "/api/users/{id}": {
+    get: { tags: ["Users"], summary: "Get user by ID (admin/pharmacist)", parameters: [{ $ref: "#/components/parameters/IdParam" }], responses: { 200: { description: "User profile", content: { "application/json": { schema: { type: "object", properties: { success: { type: "boolean" }, user: { $ref: "#/components/schemas/UserPublic" } } } } } }, 403: { $ref: "#/components/responses/Forbidden" }, 404: { $ref: "#/components/responses/NotFound" } } },
   },
   "/api/users/{id}/status": {
     patch: { tags: ["Users"], summary: "Ban / unban user (admin)", parameters: [{ $ref: "#/components/parameters/IdParam" }], requestBody: { content: { "application/json": { schema: { type: "object", properties: { isActive: { type: "boolean" }, blockedReason: { type: "string" } } } } } }, responses: { 200: { description: "Status updated" } } },
@@ -754,6 +755,9 @@ const paths = {
   "/api/wallet/credit": {
     post: { tags: ["Wallet"], summary: "Credit wallet (admin)", requestBody: { content: { "application/json": { schema: { type: "object", required: ["amount"], properties: { userId: { type: "string" }, amount: { type: "number" }, description: { type: "string" } } } } } }, responses: { 200: { description: "Credited" } } },
   },
+  "/api/wallet/debit": {
+    post: { tags: ["Wallet"], summary: "Debit wallet (purchase or manual deduction)", requestBody: { content: { "application/json": { schema: { type: "object", required: ["amount"], properties: { amount: { type: "number", example: 25.00 }, description: { type: "string", example: "Loyalty redemption" }, orderId: { type: "string" } } } } } }, responses: { 200: { description: "Debited, new balance returned" }, 400: { description: "Insufficient balance" } } },
+  },
 
   // ── Prescriptions ────────────────────────────────────────────────────────────
   "/api/prescriptions": {
@@ -775,6 +779,10 @@ const paths = {
     get:  { tags: ["Reviews"], summary: "Get reviews for a medicine", security: [], parameters: [{ name: "medicineId", in: "path", required: true, schema: { type: "string" } }, { name: "rating", in: "query", schema: { type: "integer", minimum: 1, maximum: 5 } }, { name: "sort", in: "query", schema: { type: "string", enum: ["newest", "helpful"] } }, { $ref: "#/components/parameters/PageParam" }], responses: { 200: { description: "Reviews with rating distribution" } } },
     post: { tags: ["Reviews"], summary: "Submit a review (verified purchase badge auto-assigned)", parameters: [{ name: "medicineId", in: "path", required: true, schema: { type: "string" } }], requestBody: { content: { "application/json": { schema: { type: "object", required: ["rating"], properties: { rating: { type: "integer", minimum: 1, maximum: 5 }, title: { type: "string" }, comment: { type: "string" } } } } } }, responses: { 201: { description: "Review submitted" }, 400: { description: "Already reviewed" } } },
   },
+  "/api/reviews/{id}": {
+    put:    { tags: ["Reviews"], summary: "Edit my review (author only)", parameters: [{ $ref: "#/components/parameters/IdParam" }], requestBody: { content: { "application/json": { schema: { type: "object", properties: { rating: { type: "integer", minimum: 1, maximum: 5 }, title: { type: "string" }, comment: { type: "string" } } } } } }, responses: { 200: { description: "Updated" }, 403: { $ref: "#/components/responses/Forbidden" } } },
+    delete: { tags: ["Reviews"], summary: "Delete my review (author or admin)", parameters: [{ $ref: "#/components/parameters/IdParam" }], responses: { 200: { description: "Deleted" }, 403: { $ref: "#/components/responses/Forbidden" } } },
+  },
   "/api/reviews/{id}/helpful": {
     post: { tags: ["Reviews"], summary: "Toggle helpful vote on a review", parameters: [{ $ref: "#/components/parameters/IdParam" }], responses: { 200: { description: "Vote toggled" } } },
   },
@@ -794,6 +802,7 @@ const paths = {
     post: { tags: ["Coupons"], summary: "Create coupon (admin)", requestBody: { content: { "application/json": { schema: { $ref: "#/components/schemas/Coupon" } } } }, responses: { 201: { description: "Created" } } },
   },
   "/api/coupons/{id}": {
+    get:    { tags: ["Coupons"], summary: "Get coupon by ID (admin)", parameters: [{ $ref: "#/components/parameters/IdParam" }], responses: { 200: { description: "Coupon detail", content: { "application/json": { schema: { type: "object", properties: { success: { type: "boolean" }, coupon: { $ref: "#/components/schemas/Coupon" } } } } } } } },
     put:    { tags: ["Coupons"], summary: "Update coupon (admin)", parameters: [{ $ref: "#/components/parameters/IdParam" }], responses: { 200: { description: "Updated" } } },
     delete: { tags: ["Coupons"], summary: "Deactivate coupon (admin)", parameters: [{ $ref: "#/components/parameters/IdParam" }], responses: { 200: { description: "Deactivated" } } },
   },
@@ -842,6 +851,7 @@ const paths = {
     post: { tags: ["Delivery"], summary: "Calculate delivery fee for a city and order amount", security: [], requestBody: { content: { "application/json": { schema: { type: "object", required: ["city", "orderAmount"], properties: { city: { type: "string", example: "Riyadh" }, orderAmount: { type: "number", example: 150 } } } } } }, responses: { 200: { description: "Fee, availability, and available slots" } } },
   },
   "/api/delivery/zones/{id}": {
+    get:    { tags: ["Delivery"], summary: "Get delivery zone by ID", parameters: [{ $ref: "#/components/parameters/IdParam" }], responses: { 200: { description: "Zone detail", content: { "application/json": { schema: { type: "object", properties: { success: { type: "boolean" }, zone: { $ref: "#/components/schemas/DeliveryZone" } } } } } }, 404: { $ref: "#/components/responses/NotFound" } } },
     put:    { tags: ["Delivery"], summary: "Update delivery zone (admin)", parameters: [{ $ref: "#/components/parameters/IdParam" }], responses: { 200: { description: "Updated" } } },
     delete: { tags: ["Delivery"], summary: "Deactivate zone (admin)", parameters: [{ $ref: "#/components/parameters/IdParam" }], responses: { 200: { description: "Deactivated" } } },
   },
@@ -866,6 +876,9 @@ const paths = {
   "/api/notifications/{id}/read": {
     patch: { tags: ["Notifications"], summary: "Mark single notification as read", parameters: [{ $ref: "#/components/parameters/IdParam" }], responses: { 200: { description: "Read" } } },
   },
+  "/api/notifications/{id}": {
+    delete: { tags: ["Notifications"], summary: "Delete a single notification", parameters: [{ $ref: "#/components/parameters/IdParam" }], responses: { 200: { description: "Deleted" }, 404: { $ref: "#/components/responses/NotFound" } } },
+  },
   "/api/notifications/send": {
     post: { tags: ["Notifications"], summary: "Broadcast notification (admin)", requestBody: { content: { "application/json": { schema: { type: "object", required: ["type", "title", "body"], properties: { userIds: { type: "array", items: { type: "string" }, description: "Optional; omit to send to all users" }, type: { type: "string" }, title: { type: "string" }, body: { type: "string" } } } } } }, responses: { 200: { description: "Sent" } } },
   },
@@ -879,8 +892,26 @@ const paths = {
     get: { tags: ["Articles"], summary: "Get article by slug (increments view count)", security: [], parameters: [{ name: "slug", in: "path", required: true, schema: { type: "string" } }], responses: { 200: { description: "Full article" } } },
   },
   "/api/articles/{id}": {
+    get:    { tags: ["Articles"], summary: "Get article by ID", security: [], parameters: [{ $ref: "#/components/parameters/IdParam" }], responses: { 200: { description: "Full article", content: { "application/json": { schema: { type: "object", properties: { success: { type: "boolean" }, article: { $ref: "#/components/schemas/Article" } } } } } }, 404: { $ref: "#/components/responses/NotFound" } } },
     put:    { tags: ["Articles"], summary: "Update article (admin/pharmacist)", parameters: [{ $ref: "#/components/parameters/IdParam" }], responses: { 200: { description: "Updated" } } },
     delete: { tags: ["Articles"], summary: "Delete article (admin)", parameters: [{ $ref: "#/components/parameters/IdParam" }], responses: { 200: { description: "Deleted" } } },
+  },
+
+  // ── Reports ───────────────────────────────────────────────────────────────────
+  "/api/reports/sales": {
+    get: { tags: ["Admin – Dashboard"], summary: "Sales report: revenue and order totals for a date range (admin)", parameters: [{ name: "startDate", in: "query", schema: { type: "string", format: "date" } }, { name: "endDate", in: "query", schema: { type: "string", format: "date" } }], responses: { 200: { description: "Revenue totals, order count, AOV, and per-category breakdown" } } },
+  },
+  "/api/reports/inventory": {
+    get: { tags: ["Admin – Inventory"], summary: "Full inventory report: stock levels and value per medicine (admin)", responses: { 200: { description: "All medicines with current stock and estimated value" } } },
+  },
+  "/api/reports/low-stock": {
+    get: { tags: ["Admin – Inventory"], summary: "Low-stock report: medicines at or below reorder threshold (admin)", parameters: [{ name: "threshold", in: "query", schema: { type: "integer" } }], responses: { 200: { description: "Low stock medicines" } } },
+  },
+  "/api/reports/revenue": {
+    get: { tags: ["Admin – Dashboard"], summary: "Revenue grouped by period (day / week / month) (admin)", parameters: [{ name: "period", in: "query", schema: { type: "string", enum: ["day", "week", "month"], default: "month" } }, { name: "startDate", in: "query", schema: { type: "string", format: "date" } }, { name: "endDate", in: "query", schema: { type: "string", format: "date" } }], responses: { 200: { description: "Revenue time-series" } } },
+  },
+  "/api/reports/top-medicines": {
+    get: { tags: ["Admin – Dashboard"], summary: "Top selling medicines by revenue or units (admin)", parameters: [{ name: "limit", in: "query", schema: { type: "integer", default: 10 } }, { name: "since", in: "query", schema: { type: "string", format: "date" } }], responses: { 200: { description: "Top medicines with sales data" } } },
   },
 
   // ── Admin Dashboard ───────────────────────────────────────────────────────────

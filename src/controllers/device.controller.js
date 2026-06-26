@@ -35,7 +35,7 @@ exports.getDevices = async (req, res, next) => {
         lastUsed:          s.lastUsed,
         createdAt:         s.createdAt,
         expiresAt:         s.expiresAt,
-        isCurrent:         s.deviceId === (req.body.deviceId || req.headers["x-device-id"]),
+        isCurrent:         s.deviceId === (req.body?.deviceId || req.headers["x-device-id"]),
       })),
     });
   } catch (err) {
@@ -46,7 +46,7 @@ exports.getDevices = async (req, res, next) => {
 // ─── Get current device ───────────────────────────────────────────────────────
 exports.getCurrentDevice = async (req, res, next) => {
   try {
-    const deviceId = req.body.deviceId || req.headers["x-device-id"];
+    const deviceId = req.body?.deviceId || req.headers["x-device-id"];
     if (!deviceId) {
       return res.status(400).json({ success: false, message: "deviceId is required (body or x-device-id header)" });
     }

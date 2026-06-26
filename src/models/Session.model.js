@@ -33,6 +33,10 @@ const sessionSchema = new mongoose.Schema(
     language: { type: String, default: "ar" },
     timezone: { type: String, default: "Asia/Riyadh" },
 
+    // ── Locale metadata ─────────────────────────────────────────────────────
+    deviceLocale:   { type: String },   // e.g. "ar_SA"
+    deviceLanguage: { type: String },   // e.g. "ar"
+
     // ── Network metadata ────────────────────────────────────────────────────
     ipAddress: { type: String },
     userAgent: { type: String },

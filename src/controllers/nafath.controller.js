@@ -154,24 +154,26 @@ exports.initiate = async (req, res, next) => {
 // ─── Poll Nafath status ───────────────────────────────────────────────────────
 exports.checkStatus = async (req, res, next) => {
   try {
-    const { transactionId } = req.params;
+    const { transactionId, sessionId } = req.params;
+    // Support both :transactionId and :sessionId route params (diagram alias)
+    const txId = transactionId || sessionId;
 
-    const txn = pendingTransactions.get(transactionId);
+    const txn = pendingTransactions.get(txId);
     if (!txn) {
       return res.status(404).json({ success: false, message: "Transaction not found or expired", status: "expired" });
     }
 
     // Check client-side TTL
     if (Date.now() - txn.createdAt > TRANSACTION_TTL_MS) {
-      pendingTransactions.delete(transactionId);
+      pendingTransactions.delete(txId);
       return res.json({ success: true, status: "expired", message: "Authentication request expired. Please try again." });
     }
 
-    const result = await nafathApi.getStatus(transactionId, txn.reqId);
+    const result = await nafathApi.getStatus(txId, txn.reqId);
     const status  = result.status?.toLowerCase() || "pending";
 
     if (status === "approved") {
-      pendingTransactions.delete(transactionId);
+      pendingTransactions.delete(txId);
 
       const nafathId = result.nationalId || txn.nationalId;
       const nameAr   = result.nameAr || result.arabicName || "";
@@ -223,12 +225,12 @@ exports.checkStatus = async (req, res, next) => {
     }
 
     if (status === "rejected") {
-      pendingTransactions.delete(transactionId);
+      pendingTransactions.delete(txId);
       return res.json({ success: false, status: "rejected", message: "Authentication was rejected in the Nafath app" });
     }
 
     if (status === "expired") {
-      pendingTransactions.delete(transactionId);
+      pendingTransactions.delete(txId);
       return res.json({ success: false, status: "expired", message: "Authentication request expired" });
     }
 

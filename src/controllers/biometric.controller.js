@@ -133,6 +133,46 @@ exports.verifyBiometric = async (req, res, next) => {
   }
 };
 
+// ─── Get biometric status for a device ───────────────────────────────────────
+// Public-ish: no auth token needed — just the deviceId. Returns whether
+// biometric is enabled so the app can decide which login screen to show.
+exports.getBiometricStatus = async (req, res, next) => {
+  try {
+    const deviceId = req.query.deviceId || req.headers["x-device-id"];
+    if (!deviceId) {
+      return res.status(400).json({ success: false, message: "deviceId is required" });
+    }
+
+    const session = await Session.findOne({ deviceId, isActive: true })
+      .select("biometricEnabled biometricTokenExpiry pinEnabled platform deviceName");
+
+    if (!session) {
+      return res.json({
+        success:          true,
+        biometricEnabled: false,
+        pinEnabled:       false,
+        hasActiveSession: false,
+      });
+    }
+
+    const biometricExpired = session.biometricTokenExpiry
+      ? session.biometricTokenExpiry < new Date()
+      : true;
+
+    res.json({
+      success:          true,
+      biometricEnabled: session.biometricEnabled && !biometricExpired,
+      pinEnabled:       session.pinEnabled,
+      hasActiveSession: true,
+      deviceName:       session.deviceName,
+      platform:         session.platform,
+      biometricExpired,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 // ─── Disable biometric ────────────────────────────────────────────────────────
 exports.disableBiometric = async (req, res, next) => {
   try {

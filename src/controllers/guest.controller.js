@@ -26,24 +26,40 @@ const { extractDeviceInfo, upsertSession } = require("../utils/session.util");
 const { generateAccessToken, generateRefreshToken } = require("../utils/token.util");
 
 // ─── Create guest session ─────────────────────────────────────────────────────
+// Internal helper used by both POST /guest/session and POST /guest
+async function _createGuestSession(req, res, next) {
+  const { deviceId } = req.body;
+  const guestId = uuidv4();
+
+  await GuestSession.create({
+    guestId,
+    cart:      [],
+    deviceId:  deviceId || null,
+    ipAddress: req.ip,
+  });
+
+  res.status(201).json({
+    success:    true,
+    guestId,
+    guestToken: guestId, // alias — clients may use either field name
+    userType:   "guest",
+    message:    "Guest session created. You can browse products and add items to cart.",
+    expiresIn:  "7 days",
+  });
+}
+
 exports.createSession = async (req, res, next) => {
   try {
-    const { deviceId } = req.body;
-    const guestId = uuidv4();
+    await _createGuestSession(req, res, next);
+  } catch (err) {
+    next(err);
+  }
+};
 
-    await GuestSession.create({
-      guestId,
-      cart:      [],
-      deviceId:  deviceId || null,
-      ipAddress: req.ip,
-    });
-
-    res.status(201).json({
-      success: true,
-      guestId,
-      message: "Guest session created. You can browse products and add items to cart.",
-      expiresIn: "7 days",
-    });
+// POST /api/auth/guest  — short alias matching the diagram spec
+exports.createGuestAlias = async (req, res, next) => {
+  try {
+    await _createGuestSession(req, res, next);
   } catch (err) {
     next(err);
   }
@@ -230,23 +246,30 @@ exports.convert = async (req, res, next) => {
     const accessToken  = generateAccessToken(user._id);
     const refreshToken = generateRefreshToken(user._id);
 
+    const now = new Date();
     user.refreshToken = refreshToken;
-    user.lastLogin    = new Date();
+    user.lastLogin    = now;
+    user.lastLoginAt  = now;
+    user.loginCount   = 1;
     await user.save({ validateBeforeSave: false });
 
     const deviceInfo = extractDeviceInfo(req);
     await upsertSession(user._id, refreshToken, deviceInfo, req);
 
     res.status(201).json({
-      success: true,
-      message: "Account created and cart merged successfully",
+      success:    true,
+      message:    "Account created and cart merged successfully",
       accessToken,
       refreshToken,
       user: {
-        id:    user._id,
-        name:  user.name,
-        email: user.email,
-        role:  user.role,
+        id:             user._id,
+        name:           user.name,
+        email:          user.email,
+        role:           user.role,
+        userType:       "patient",
+        isReturningUser: false,
+        loginCount:     1,
+        lastLoginAt:    now,
       },
       cartMerged: guestSession.cart.length > 0,
     });

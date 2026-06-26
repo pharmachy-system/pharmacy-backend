@@ -54,6 +54,20 @@ const userSchema = new mongoose.Schema({
   // ── Login lockout ──────────────────────────────────────────────────────────
   loginFailedAttempts: { type: Number, default: 0 },
   loginLockoutUntil:   { type: Date },
+
+  // ── Login tracking ─────────────────────────────────────────────────────────
+  loginCount:   { type: Number, default: 0 },
+  lastLoginAt:  { type: Date },
+
+  // ── Device info (one record per deviceId, updated on each login) ───────────
+  deviceInfo: [{
+    deviceId:       { type: String, required: true },
+    deviceLocale:   { type: String },
+    deviceLanguage: { type: String },
+    platform:       { type: String, enum: ["ios", "android", "web", "desktop"], default: "web" },
+    lastSeen:       { type: Date, default: Date.now },
+    _id: false,
+  }],
 }, { timestamps: true });
 
 userSchema.index({ phone: 1 });

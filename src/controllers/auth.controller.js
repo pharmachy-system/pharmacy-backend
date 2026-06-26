@@ -13,11 +13,21 @@ const { generateAccessToken, generateRefreshToken } = require("../utils/token.ut
 const { extractDeviceInfo, upsertSession }          = require("../utils/session.util");
 const { sendOtpEmail, sendPasswordResetEmail }      = require("../utils/email.util");
 
+// ─── Role → userType mapping ──────────────────────────────────────────────────
+const ROLE_TO_USER_TYPE = {
+  customer:    "patient",
+  pharmacist:  "pharmacist",
+  admin:       "admin",
+  delivery:    "driver",
+};
+
+// ─── Build public user payload ────────────────────────────────────────────────
 const userPayload = (user) => ({
   id:              user._id,
   name:            user.name,
   email:           user.email,
   role:            user.role,
+  userType:        ROLE_TO_USER_TYPE[user.role] || user.role,
   phone:           user.phone,
   avatar:          user.avatar,
   isEmailVerified: user.isEmailVerified,
@@ -25,27 +35,32 @@ const userPayload = (user) => ({
   loyaltyPoints:   user.loyaltyPoints,
   referralCode:    user.referralCode,
   nafathVerified:  user.nafathVerified,
+  loginCount:      user.loginCount || 0,
+  isReturningUser: (user.loginCount || 0) > 1,
+  lastLoginAt:     user.lastLoginAt || user.lastLogin || null,
 });
 
-// Shared login success handler: create tokens + session + return response
-const issueTokensAndRespond = async (res, user, deviceInfo, req, statusCode = 200) => {
+// ─── Shared login success handler ─────────────────────────────────────────────
+// Creates tokens, upserts session, increments loginCount, responds.
+const issueTokensAndRespond = async (res, user, deviceInfo, req, { statusCode = 200, rememberDevice = false } = {}) => {
   const accessToken  = generateAccessToken(user._id);
   const refreshToken = generateRefreshToken(user._id);
 
-  // Keep user.refreshToken in sync for backwards compat
-  user.refreshToken = refreshToken;
-  user.lastLogin    = new Date();
+  const now = new Date();
+  user.refreshToken  = refreshToken;
+  user.lastLogin     = now;    // legacy compat
+  user.lastLoginAt   = now;
+  user.loginCount    = (user.loginCount || 0) + 1;
   user.resetLoginAttempts();
   await user.save({ validateBeforeSave: false });
 
-  // Persist session per device
-  await upsertSession(user._id, refreshToken, deviceInfo, req);
+  await upsertSession(user._id, refreshToken, deviceInfo, req, { rememberDevice });
 
   return res.status(statusCode).json({
-    success: true,
+    success:      true,
     accessToken,
     refreshToken,
-    user: userPayload(user),
+    user:         userPayload(user),
   });
 };
 
@@ -61,7 +76,6 @@ exports.register = async (req, res, next) => {
 
     const userData = { name, email, password, phone };
 
-    // Restricted roles require admin secret
     const restrictedRoles = ["admin", "delivery"];
     if (role && !restrictedRoles.includes(role)) {
       userData.role = role;
@@ -76,7 +90,6 @@ exports.register = async (req, res, next) => {
 
     const user = await User.create(userData);
 
-    // Send OTP verification email (non-blocking)
     const otp = user.generateOTP();
     await user.save({ validateBeforeSave: false });
     try {
@@ -84,44 +97,63 @@ exports.register = async (req, res, next) => {
     } catch { /* non-blocking */ }
 
     const deviceInfo = extractDeviceInfo(req);
-    return issueTokensAndRespond(res, user, deviceInfo, req, 201);
+    return issueTokensAndRespond(res, user, deviceInfo, req, { statusCode: 201 });
   } catch (err) {
     next(err);
   }
 };
 
-// ─── Login (Email + Password) — backwards-compatible ─────────────────────────
+// ─── Login (Email + Password) ─────────────────────────────────────────────────
 exports.login = async (req, res, next) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, rememberDevice = false } = req.body;
 
     const user = await User.findOne({ email })
-      .select("+password +refreshToken +loginFailedAttempts +loginLockoutUntil");
+      .select("+password +refreshToken +loginFailedAttempts +loginLockoutUntil +loginCount");
+
+    // Check lockout before password attempt (avoids timing leak)
+    if (user?.isLockedOut()) {
+      const mins = Math.ceil((user.loginLockoutUntil - Date.now()) / 60000);
+      return res.status(429).json({
+        success: false,
+        message: `Account temporarily locked. Try again in ${mins} minute(s).`,
+        code:    "ACCOUNT_LOCKED",
+        retryAfter: Math.ceil((user.loginLockoutUntil - Date.now()) / 1000),
+      });
+    }
 
     if (!user || !(await user.matchPassword(password))) {
       if (user) {
         user.recordFailedLogin();
         await user.save({ validateBeforeSave: false });
+
+        const attemptsLeft = Math.max(0, 5 - user.loginFailedAttempts);
+        return res.status(401).json({
+          success: false,
+          message: "Invalid email or password",
+          code:    "INVALID_CREDENTIALS",
+          attemptsLeft: user.isLockedOut() ? 0 : attemptsLeft,
+        });
       }
-      return res.status(401).json({ success: false, message: "Invalid email or password" });
+      return res.status(401).json({ success: false, message: "Invalid email or password", code: "INVALID_CREDENTIALS" });
     }
+
     if (!user.isActive) {
-      return res.status(403).json({ success: false, message: `Account is deactivated${user.blockedReason ? ": " + user.blockedReason : ""}` });
-    }
-    if (user.isLockedOut()) {
-      const mins = Math.ceil((user.loginLockoutUntil - Date.now()) / 60000);
-      return res.status(429).json({ success: false, message: `Account locked. Try again in ${mins} minute(s).` });
+      return res.status(403).json({
+        success: false,
+        message: `Account is deactivated${user.blockedReason ? ": " + user.blockedReason : ""}`,
+        code:    "ACCOUNT_DEACTIVATED",
+      });
     }
 
     const deviceInfo = extractDeviceInfo(req);
-    return issueTokensAndRespond(res, user, deviceInfo, req);
+    return issueTokensAndRespond(res, user, deviceInfo, req, { rememberDevice });
   } catch (err) {
     next(err);
   }
 };
 
-// ─── Login (Email) — dedicated endpoint with strict lockout ───────────────────
-// Alias of login; kept separate so clients can target /login/email explicitly.
+// Alias — /login/email
 exports.loginEmail = exports.login;
 
 // ─── Refresh Token ────────────────────────────────────────────────────────────
@@ -130,7 +162,6 @@ exports.refreshToken = async (req, res, next) => {
     const { token, deviceId } = req.body;
     if (!token) return res.status(401).json({ success: false, message: "No refresh token provided" });
 
-    // Verify JWT signature + expiry
     let decoded;
     try {
       decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
@@ -140,7 +171,6 @@ exports.refreshToken = async (req, res, next) => {
 
     const tokenHash = Session.hashToken(token);
 
-    // ── Try session-based lookup first ──────────────────────────────────────
     let session = null;
     if (deviceId) {
       session = await Session.findOne({ deviceId, isActive: true }).select("+refreshTokenHash");
@@ -172,8 +202,8 @@ exports.refreshToken = async (req, res, next) => {
       return res.json({ success: true, accessToken, refreshToken: newRefreshToken });
     }
 
-    // ── Fallback: user.refreshToken (legacy / no deviceId) ─────────────────
-    const user = await User.findById(decoded.id).select("+refreshToken");
+    // Fallback: legacy user.refreshToken
+    const user = await User.findById(decoded.id).select("+refreshToken +loginCount");
     if (!user || user.refreshToken !== token) {
       return res.status(403).json({ success: false, message: "Invalid refresh token" });
     }
@@ -189,17 +219,14 @@ exports.refreshToken = async (req, res, next) => {
   }
 };
 
-// ─── Logout (current device) ──────────────────────────────────────────────────
+// ─── Logout ───────────────────────────────────────────────────────────────────
 exports.logout = async (req, res, next) => {
   try {
     const { deviceId } = req.body || {};
-
     if (deviceId) {
       await Session.findOneAndUpdate({ deviceId, user: req.user._id }, { isActive: false });
     }
-    // Also clear user-level token (legacy)
     await User.findByIdAndUpdate(req.user._id, { refreshToken: null });
-
     res.json({ success: true, message: "Logged out successfully" });
   } catch (err) {
     next(err);
@@ -217,18 +244,20 @@ exports.logoutAll = async (req, res, next) => {
   }
 };
 
-// ─── Check Session (app startup) ─────────────────────────────────────────────
-// Client hits this with their stored access token on app launch.
-// Returns user + whether the token is still fresh (< 5 min from expiry).
+// ─── Session Validation (app startup check) ──────────────────────────────────
+// Returns { valid, user, needsBiometric, isReturningUser }
 exports.checkSession = async (req, res) => {
   const { deviceId } = req.query;
-  let sessionInfo = {};
+  let needsBiometric = false;
+  let sessionMeta    = {};
 
   if (deviceId) {
     const session = await Session.findOne({ deviceId, user: req.user._id, isActive: true })
       .select("biometricEnabled pinEnabled language timezone deviceName platform lastUsed expiresAt");
+
     if (session) {
-      sessionInfo = {
+      needsBiometric = !!session.biometricEnabled;
+      sessionMeta = {
         biometricEnabled: session.biometricEnabled,
         pinEnabled:       session.pinEnabled,
         language:         session.language,
@@ -241,7 +270,16 @@ exports.checkSession = async (req, res) => {
     }
   }
 
-  res.json({ success: true, user: userPayload(req.user), session: sessionInfo });
+  const payload = userPayload(req.user);
+
+  res.json({
+    success:         true,
+    valid:           true,
+    user:            payload,
+    needsBiometric,
+    isReturningUser: payload.isReturningUser,
+    session:         sessionMeta,
+  });
 };
 
 // ─── Get Me ───────────────────────────────────────────────────────────────────
@@ -255,16 +293,16 @@ exports.verifyEmail = async (req, res, next) => {
 
     const hashed = crypto.createHash("sha256").update(otp).digest("hex");
     const user = await User.findOne({
-      _id: req.user._id,
-      emailOTP: hashed,
+      _id:            req.user._id,
+      emailOTP:       hashed,
       emailOTPExpire: { $gt: Date.now() },
     }).select("+emailOTP +emailOTPExpire");
 
     if (!user) return res.status(400).json({ success: false, message: "Invalid or expired OTP" });
 
     user.isEmailVerified = true;
-    user.emailOTP = undefined;
-    user.emailOTPExpire = undefined;
+    user.emailOTP        = undefined;
+    user.emailOTPExpire  = undefined;
     await user.save({ validateBeforeSave: false });
 
     res.json({ success: true, message: "Email verified successfully" });
@@ -283,7 +321,6 @@ exports.resendOTP = async (req, res, next) => {
 
     const otp = user.generateOTP();
     await user.save({ validateBeforeSave: false });
-
     await sendOtpEmail(user, otp, "التحقق من البريد الإلكتروني | Email Verification", 10);
 
     res.json({ success: true, message: "OTP sent to your email" });
@@ -304,11 +341,10 @@ exports.forgotPassword = async (req, res, next) => {
     await user.save({ validateBeforeSave: false });
 
     const resetUrl = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
-
     try {
       await sendPasswordResetEmail(user, resetUrl);
     } catch {
-      user.resetPasswordToken = undefined;
+      user.resetPasswordToken  = undefined;
       user.resetPasswordExpire = undefined;
       await user.save({ validateBeforeSave: false });
       return res.status(500).json({ success: false, message: "Email could not be sent" });
@@ -326,18 +362,17 @@ exports.resetPassword = async (req, res, next) => {
     const hashedToken = crypto.createHash("sha256").update(req.params.token).digest("hex");
 
     const user = await User.findOne({
-      resetPasswordToken: hashedToken,
+      resetPasswordToken:  hashedToken,
       resetPasswordExpire: { $gt: Date.now() },
     });
     if (!user) return res.status(400).json({ success: false, message: "Token is invalid or has expired" });
 
-    user.password = req.body.password;
-    user.resetPasswordToken = undefined;
+    user.password            = req.body.password;
+    user.resetPasswordToken  = undefined;
     user.resetPasswordExpire = undefined;
-    user.refreshToken = null;
+    user.refreshToken        = null;
     await user.save();
 
-    // Invalidate all sessions after password reset
     await Session.updateMany({ user: user._id }, { isActive: false });
 
     res.json({ success: true, message: "Password reset successful. Please log in." });
@@ -346,13 +381,12 @@ exports.resetPassword = async (req, res, next) => {
   }
 };
 
-// ─── Social token verification helpers ───────────────────────────────────────
-
+// ─── Social Login ─────────────────────────────────────────────────────────────
 async function verifyGoogleToken(idToken) {
-  const url = `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`;
-  const res = await fetch(url);
-  const data = await res.json();
-  if (!res.ok || data.error) throw new Error(data.error_description || "Invalid Google token");
+  const url  = `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`;
+  const resp = await fetch(url);
+  const data = await resp.json();
+  if (!resp.ok || data.error) throw new Error(data.error_description || "Invalid Google token");
   if (data.email_verified !== "true" && data.email_verified !== true) {
     throw new Error("Google account email not verified");
   }
@@ -360,28 +394,24 @@ async function verifyGoogleToken(idToken) {
 }
 
 async function verifyAppleToken(idToken) {
-  // Decode header to get key ID
   const [headerB64] = idToken.split(".");
   const header = JSON.parse(Buffer.from(headerB64, "base64url").toString("utf8"));
 
-  // Fetch Apple's public keys
   const keysRes = await fetch("https://appleid.apple.com/auth/keys");
   const { keys } = await keysRes.json();
   const jwk = keys.find((k) => k.kid === header.kid);
   if (!jwk) throw new Error("Apple signing key not found");
 
-  // Import JWK and verify using Node crypto (no extra packages needed)
   const { createPublicKey, createVerify } = require("crypto");
   const pubKey = createPublicKey({ key: jwk, format: "jwk" });
 
   const [, payloadB64, signatureB64] = idToken.split(".");
   const signingInput = `${headerB64}.${payloadB64}`;
-  const signature = Buffer.from(signatureB64, "base64url");
+  const signature    = Buffer.from(signatureB64, "base64url");
 
   const verifier = createVerify("SHA256");
   verifier.update(signingInput);
-  const valid = verifier.verify(pubKey, signature);
-  if (!valid) throw new Error("Invalid Apple token signature");
+  if (!verifier.verify(pubKey, signature)) throw new Error("Invalid Apple token signature");
 
   const payload = JSON.parse(Buffer.from(payloadB64, "base64url").toString("utf8"));
   if (payload.exp < Math.floor(Date.now() / 1000)) throw new Error("Apple token expired");
@@ -389,7 +419,6 @@ async function verifyAppleToken(idToken) {
   return { socialId: payload.sub, email: payload.email || null, name: null, avatar: null };
 }
 
-// ─── Social Login (Google / Apple) ───────────────────────────────────────────
 exports.socialLogin = async (req, res, next) => {
   try {
     const { provider, idToken } = req.body;
@@ -401,7 +430,6 @@ exports.socialLogin = async (req, res, next) => {
       return res.status(400).json({ success: false, message: "idToken is required" });
     }
 
-    // Verify the token against the provider — never trust client-supplied socialId
     let verified;
     try {
       verified = provider === "google"
@@ -413,11 +441,13 @@ exports.socialLogin = async (req, res, next) => {
 
     const { socialId, email, name, avatar } = verified;
 
-    let user = await User.findOne({ $or: [{ socialId, socialProvider: provider }, ...(email ? [{ email }] : [])] });
+    let user = await User.findOne({
+      $or: [{ socialId, socialProvider: provider }, ...(email ? [{ email }] : [])],
+    }).select("+loginCount");
 
     if (user) {
       if (!user.socialId) {
-        user.socialId = socialId;
+        user.socialId       = socialId;
         user.socialProvider = provider;
         if (avatar && !user.avatar) user.avatar = avatar;
         await user.save({ validateBeforeSave: false });
@@ -461,8 +491,7 @@ exports.changePassword = async (req, res, next) => {
     const user = await User.findById(req.user._id).select("+password");
     if (!user) return res.status(404).json({ success: false, message: "User not found" });
 
-    const isMatch = await user.matchPassword(currentPassword);
-    if (!isMatch) {
+    if (!(await user.matchPassword(currentPassword))) {
       return res.status(401).json({ success: false, message: "Current password is incorrect" });
     }
 
@@ -474,4 +503,3 @@ exports.changePassword = async (req, res, next) => {
     next(err);
   }
 };
-

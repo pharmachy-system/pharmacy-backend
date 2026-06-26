@@ -17,7 +17,7 @@ const guestCtrl      = require("../controllers/guest.controller");
 
 // ── Middleware ────────────────────────────────────────────────────────────────
 const { protect }                    = require("../middlewares/auth.middleware");
-const { authLimiter }                = require("../middlewares/rateLimiter.middleware");
+const { authLimiter, otpLimiter, passwordResetLimiter } = require("../middlewares/rateLimiter");
 const { joiValidate, joiValidateMulti } = require("../middlewares/joiValidate.middleware");
 const { schemas }                    = require("../validators/joi.validators");
 
@@ -33,18 +33,18 @@ router.get ("/me",                   protect, getMe);
 router.get ("/session",              protect, checkSession);
 router.post("/verify-email",         protect, joiValidate(schemas.auth.verifyEmail),         verifyEmail);
 router.post("/resend-otp",           protect, resendOTP);
-router.post("/forgot-password",      authLimiter, joiValidate(schemas.auth.forgotPassword),  forgotPassword);
-router.put ("/reset-password/:token",joiValidate(schemas.auth.resetPassword),                resetPassword);
+router.post("/forgot-password",      passwordResetLimiter, joiValidate(schemas.auth.forgotPassword),  forgotPassword);
+router.put ("/reset-password/:token",passwordResetLimiter, joiValidate(schemas.auth.resetPassword),    resetPassword);
 router.put ("/change-password",      protect, joiValidate(schemas.auth.changePassword),      changePassword);
 router.post("/social",               authLimiter, socialLogin);
 
 // ── Phone OTP Login ───────────────────────────────────────────────────────────
-router.post("/login/phone/send",     authLimiter, joiValidate(schemas.phoneOtp.send),        phoneOtpCtrl.sendOTP);
-router.post("/login/phone/verify",   authLimiter, joiValidate(schemas.phoneOtp.verify),      phoneOtpCtrl.verifyOTP);
-router.post("/login/phone/resend",   authLimiter, joiValidate(schemas.phoneOtp.send),        phoneOtpCtrl.resendOTP);
-router.post("/otp/send",             authLimiter, joiValidate(schemas.phoneOtp.send),        phoneOtpCtrl.sendOTP);
-router.post("/otp/verify",           authLimiter, joiValidate(schemas.phoneOtp.verify),      phoneOtpCtrl.verifyOTP);
-router.post("/otp/resend",           authLimiter, joiValidate(schemas.phoneOtp.send),        phoneOtpCtrl.resendOTP);
+router.post("/login/phone/send",     otpLimiter, joiValidate(schemas.phoneOtp.send),        phoneOtpCtrl.sendOTP);
+router.post("/login/phone/verify",   otpLimiter, joiValidate(schemas.phoneOtp.verify),      phoneOtpCtrl.verifyOTP);
+router.post("/login/phone/resend",   otpLimiter, joiValidate(schemas.phoneOtp.send),        phoneOtpCtrl.resendOTP);
+router.post("/otp/send",             otpLimiter, joiValidate(schemas.phoneOtp.send),        phoneOtpCtrl.sendOTP);
+router.post("/otp/verify",           otpLimiter, joiValidate(schemas.phoneOtp.verify),      phoneOtpCtrl.verifyOTP);
+router.post("/otp/resend",           otpLimiter, joiValidate(schemas.phoneOtp.send),        phoneOtpCtrl.resendOTP);
 
 // ── Nafath (Saudi National ID) ────────────────────────────────────────────────
 router.post("/nafath/initiate",      authLimiter, joiValidate(schemas.nafath.initiate),      nafathCtrl.initiate);

@@ -4,15 +4,14 @@ const {
   createPaymentIntent, stripeWebhook, getPaymentHistory, requestRefund,
 } = require("../controllers/payment.controller");
 const { protect } = require("../middlewares/auth.middleware");
+const { paymentLimiter } = require("../middlewares/rateLimiter");
 
-// Stripe webhook uses raw body – must be before express.json()
-// Note: in app.js, add this route before body parsing middleware
-// or handle raw body parsing here.
+// Stripe webhook — raw body required for signature verification
 router.post("/webhook", express.raw({ type: "application/json" }), stripeWebhook);
 
 router.use(protect);
-router.post("/create-intent", createPaymentIntent);
+router.post("/create-intent", paymentLimiter, createPaymentIntent);
 router.get("/history", getPaymentHistory);
-router.post("/refund", requestRefund);
+router.post("/refund", paymentLimiter, requestRefund);
 
 module.exports = router;

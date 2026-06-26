@@ -5,6 +5,8 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
+    "seed": "node scripts/seed.js",
+    "seed:fresh": "node scripts/seed.js --fresh",
     "test": "jest --runInBand --detectOpenHandles --forceExit",
     "test:watch": "jest --runInBand --watch",
     "test:coverage": "jest --runInBand --coverage --detectOpenHandles --forceExit",

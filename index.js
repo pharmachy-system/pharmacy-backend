@@ -1,38 +1,70 @@
-console.log("[START] Starting index.js...");
-
-process.on('uncaughtException', (err) => {
-  console.error("[ERROR] Uncaught Exception:", err);
-  process.exit(1);
-});
-
-process.on('unhandledRejection', (err) => {
-  console.error("[ERROR] Unhandled Rejection:", err);
-  process.exit(1);
-});
-
-console.log("[STEP 1] Loading env config...");
-const config = require('./src/config/env');
-console.log("[OK] config loaded, PORT:", config.port);
-
-console.log("[STEP 2] Loading app...");
-const app = require('./src/app');
-console.log("[OK] app loaded");
-
-console.log("[STEP 3] Loading connectDB...");
-const connectDB = require('./src/config/db');
-console.log("[OK] connectDB loaded");
+const config    = require("./src/config/env");
+const logger    = require("./src/utils/logger");
+const app       = require("./src/app");
+const connectDB = require("./src/config/db");
+const { startJobs, stopJobs } = require("./src/jobs");
 
 const PORT = config.port || 5000;
+let server;
 
-console.log("[STEP 4] Calling connectDB()...");
+// ─── Graceful shutdown ────────────────────────────────────────────────────────
+
+async function shutdown(signal) {
+  logger.info(`[SERVER] ${signal} received — shutting down gracefully`);
+
+  // 1. Stop accepting new connections
+  server.close(async () => {
+    logger.info("[SERVER] HTTP server closed");
+
+    // 2. Stop scheduled jobs
+    try { stopJobs(); } catch (_) {}
+
+    // 3. Close DB connection
+    try {
+      const mongoose = require("mongoose");
+      await mongoose.connection.close();
+      logger.info("[SERVER] MongoDB connection closed");
+    } catch (_) {}
+
+    process.exit(0);
+  });
+
+  // Force-kill if shutdown takes more than 10 seconds
+  setTimeout(() => {
+    logger.error("[SERVER] Forced shutdown after timeout");
+    process.exit(1);
+  }, 10_000);
+}
+
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT",  () => shutdown("SIGINT"));
+
+process.on("uncaughtException", (err) => {
+  logger.error("[FATAL] Uncaught exception", { message: err.message, stack: err.stack });
+  process.exit(1);
+});
+
+process.on("unhandledRejection", (err) => {
+  logger.error("[FATAL] Unhandled rejection", { message: err?.message, stack: err?.stack });
+  process.exit(1);
+});
+
+// ─── Boot sequence ────────────────────────────────────────────────────────────
+
 connectDB()
   .then(() => {
-    console.log("[OK] DB connected successfully");
-    app.listen(PORT, () => {
-      console.log("[SUCCESS] Server running on port " + PORT);
+    startJobs();
+
+    server = app.listen(PORT, () => {
+      logger.info(`[SERVER] Running on port ${PORT} (${process.env.NODE_ENV || "development"})`);
+    });
+
+    server.on("error", (err) => {
+      logger.error("[SERVER] Listen error", { message: err.message });
+      process.exit(1);
     });
   })
-  .catch((error) => {
-    console.error("[FAIL] Failed to start server:", error);
+  .catch((err) => {
+    logger.error("[BOOT] Failed to connect to database", { message: err.message });
     process.exit(1);
   });

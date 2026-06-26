@@ -4,12 +4,13 @@ const cors = require('cors');
 const morgan = require('morgan');
 const compression = require('compression');
 const cookieParser = require('cookie-parser');
-// const mongoSanitize = require('express-mongo-sanitize'); // disabled - incompatible with Express 5
+const crypto = require('crypto');
 const swaggerUi = require('swagger-ui-express');
 
 // Utils
 const logger = require('./utils/logger');
 const { apiLimiter } = require('./middlewares/rateLimiter');
+const sanitize = require('./middlewares/sanitize.middleware');
 const notFound = require('./middlewares/notFound');
 const errorHandler = require('./middlewares/errorHandler');
 
@@ -18,12 +19,29 @@ const swaggerSpec = require('./config/swagger.config');
 
 const app = express();
 
-// Security middleware
+// Attach a unique request ID to every request for log correlation
+app.use((req, _res, next) => {
+  req.id = crypto.randomUUID();
+  next();
+});
+
+// Security headers
 app.use(helmet());
+
+// CORS — supports comma-separated list in CORS_ORIGIN env var
+const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  origin: (origin, cb) => {
+    // Allow requests with no origin (curl, mobile apps, Postman)
+    if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+    cb(new Error(`CORS: origin '${origin}' not allowed`));
+  },
   credentials: true,
-  optionsSuccessStatus: 200
+  optionsSuccessStatus: 200,
 }));
 
 // Logging
@@ -39,8 +57,8 @@ app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// NoSQL injection sanitization
-// app.use(mongoSanitize()); // disabled - incompatible with Express 5
+// NoSQL injection + XSS sanitization (Express 5 compatible — body/params only)
+app.use(sanitize);
 
 // Rate limiting
 app.use('/api', apiLimiter);

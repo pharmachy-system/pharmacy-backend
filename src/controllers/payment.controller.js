@@ -1,6 +1,10 @@
 const Payment = require("../models/Payment.model");
 const Order = require("../models/Order.model");
 const Wallet = require("../models/Wallet.model");
+const User = require("../models/User.model");
+const { createNotification } = require("../utils/notification.util");
+const { sendOrderConfirmationEmail } = require("../utils/email.util");
+const logger = require("../config/logger.config");
 
 // Lazy-init Stripe so missing key at startup doesn't crash the app
 const getStripe = () => {
@@ -57,20 +61,91 @@ exports.stripeWebhook = async (req, res, next) => {
   }
 
   try {
-    if (event.type === "payment_intent.succeeded") {
-      const pi = event.data.object;
-      const { orderId } = pi.metadata;
+    switch (event.type) {
 
-      await Order.findByIdAndUpdate(orderId, { paymentStatus: "paid", status: "confirmed" });
-      await Payment.findOneAndUpdate(
-        { stripePaymentIntentId: pi.id },
-        { status: "completed", stripeChargeId: pi.latest_charge, paidAt: new Date() }
-      );
-    }
+      case "payment_intent.succeeded": {
+        const pi = event.data.object;
+        const { orderId } = pi.metadata;
 
-    if (event.type === "payment_intent.payment_failed") {
-      const pi = event.data.object;
-      await Payment.findOneAndUpdate({ stripePaymentIntentId: pi.id }, { status: "failed" });
+        const order = await Order.findByIdAndUpdate(
+          orderId,
+          { paymentStatus: "paid", status: "confirmed",
+            $push: { trackingHistory: { status: "confirmed", note: "Payment received via Stripe" } } },
+          { new: true }
+        );
+        await Payment.findOneAndUpdate(
+          { stripePaymentIntentId: pi.id },
+          { status: "completed", stripeChargeId: pi.latest_charge, paidAt: new Date() }
+        );
+
+        if (order) {
+          const user = await User.findById(order.user).select("name email");
+          if (user) {
+            createNotification({
+              userId: user._id,
+              type: "order",
+              title: "Payment Confirmed",
+              body: `Payment for order ${order.orderNumber} was successful`,
+              data: { orderId: order._id, orderNumber: order.orderNumber },
+            }).catch(() => {});
+            sendOrderConfirmationEmail(user, order).catch(() => {});
+          }
+        }
+        break;
+      }
+
+      case "payment_intent.payment_failed": {
+        const pi = event.data.object;
+        await Payment.findOneAndUpdate({ stripePaymentIntentId: pi.id }, { status: "failed" });
+        const failedPayment = await Payment.findOne({ stripePaymentIntentId: pi.id });
+        if (failedPayment) {
+          const order = await Order.findById(failedPayment.order);
+          if (order) {
+            createNotification({
+              userId: order.user,
+              type: "order",
+              title: "Payment Failed",
+              body: `Payment for order ${order.orderNumber} failed. Please try again.`,
+              data: { orderId: order._id },
+            }).catch(() => {});
+          }
+        }
+        break;
+      }
+
+      case "payment_intent.canceled": {
+        const pi = event.data.object;
+        await Payment.findOneAndUpdate({ stripePaymentIntentId: pi.id }, { status: "failed" });
+        break;
+      }
+
+      case "charge.refunded": {
+        const charge = event.data.object;
+        await Payment.findOneAndUpdate(
+          { stripeChargeId: charge.id },
+          { status: "refunded", refundAmount: charge.amount_refunded / 100, refundedAt: new Date() }
+        );
+        break;
+      }
+
+      case "charge.dispute.created": {
+        const dispute = event.data.object;
+        logger.warn("[STRIPE] Dispute created", { chargeId: dispute.charge, reason: dispute.reason });
+        await Payment.findOneAndUpdate(
+          { stripeChargeId: dispute.charge },
+          { status: "disputed" }
+        );
+        break;
+      }
+
+      case "charge.dispute.lost": {
+        const dispute = event.data.object;
+        logger.error("[STRIPE] Dispute lost", { chargeId: dispute.charge });
+        break;
+      }
+
+      default:
+        logger.info(`[STRIPE] Unhandled event: ${event.type}`);
     }
 
     res.json({ received: true });

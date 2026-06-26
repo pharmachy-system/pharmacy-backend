@@ -4,7 +4,7 @@ const paymentSchema = new mongoose.Schema({
   order: { type: mongoose.Schema.Types.ObjectId, ref: "Order", required: true },
   user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   method: { type: String, enum: ["cash", "card", "wallet"], required: true },
-  status: { type: String, enum: ["pending", "completed", "failed", "refunded"], default: "pending" },
+  status: { type: String, enum: ["pending", "completed", "failed", "refunded", "disputed"], default: "pending" },
   amount: { type: Number, required: true },
   currency: { type: String, default: "SAR" },
   transactionId: { type: String },

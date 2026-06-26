@@ -78,12 +78,12 @@ exports.createReview = async (req, res, next) => {
       title,
       comment,
       isVerifiedPurchase: !!hasPurchased,
-      status: "approved", // Auto-approve; can change to 'pending' for moderation
+      status: "pending",
     });
 
-    await recalculateRating(medicine._id);
+    // Rating is recalculated only when review is approved (via moderateReview)
 
-    res.status(201).json({ success: true, review });
+    res.status(201).json({ success: true, review, message: "Review submitted and pending moderation" });
   } catch (err) {
     next(err);
   }

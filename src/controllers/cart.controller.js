@@ -13,7 +13,7 @@ exports.getCart = async (req, res, next) => {
   try {
     const cart = await Cart.findOne({ user: req.user._id }).populate(
       "items.medicine",
-      "name images finalPrice stock requiresPrescription isActive"
+      "name images finalPrice flashSalePrice isFlashSale stock requiresPrescription isActive"
     );
 
     if (!cart) return res.json({ success: true, cart: { items: [], subtotal: 0, itemCount: 0 } });
@@ -21,10 +21,12 @@ exports.getCart = async (req, res, next) => {
     // Filter out inactive/deleted medicines
     cart.items = cart.items.filter((item) => item.medicine && item.medicine.isActive);
 
-    // Refresh prices from current medicine prices
+    // Refresh prices — use flash sale price when active
     let subtotal = 0;
     for (const item of cart.items) {
-      item.price = item.medicine.finalPrice;
+      item.price = item.medicine.isFlashSale && item.medicine.flashSalePrice
+        ? item.medicine.flashSalePrice
+        : item.medicine.finalPrice;
       subtotal += item.price * item.quantity;
     }
     await cart.save();
@@ -59,23 +61,27 @@ exports.addToCart = async (req, res, next) => {
     const cart = await getOrCreateCart(req.user._id);
     const existingItem = cart.items.find((i) => i.medicine.toString() === medicineId);
 
+    const activePrice = medicine.isFlashSale && medicine.flashSalePrice
+      ? medicine.flashSalePrice
+      : medicine.finalPrice;
+
     if (existingItem) {
       const newQty = existingItem.quantity + quantity;
       if (medicine.stock < newQty)
         return res.status(400).json({ success: false, message: "Insufficient stock" });
       existingItem.quantity = newQty;
-      existingItem.price = medicine.finalPrice;
+      existingItem.price = activePrice;
     } else {
       cart.items.push({
         medicine: medicine._id,
         quantity,
-        price: medicine.finalPrice,
+        price: activePrice,
         name: medicine.name,
       });
     }
 
     await cart.save();
-    await cart.populate("items.medicine", "name images finalPrice stock requiresPrescription");
+    await cart.populate("items.medicine", "name images finalPrice flashSalePrice isFlashSale stock requiresPrescription");
     res.json({ success: true, cart });
   } catch (err) {
     next(err);
@@ -102,7 +108,7 @@ exports.updateCartItem = async (req, res, next) => {
     }
 
     await cart.save();
-    await cart.populate("items.medicine", "name images finalPrice stock requiresPrescription");
+    await cart.populate("items.medicine", "name images finalPrice flashSalePrice isFlashSale stock requiresPrescription");
     res.json({ success: true, cart });
   } catch (err) {
     next(err);

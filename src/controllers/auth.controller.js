@@ -346,19 +346,74 @@ exports.resetPassword = async (req, res, next) => {
   }
 };
 
+// ─── Social token verification helpers ───────────────────────────────────────
+
+async function verifyGoogleToken(idToken) {
+  const url = `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`;
+  const res = await fetch(url);
+  const data = await res.json();
+  if (!res.ok || data.error) throw new Error(data.error_description || "Invalid Google token");
+  if (data.email_verified !== "true" && data.email_verified !== true) {
+    throw new Error("Google account email not verified");
+  }
+  return { socialId: data.sub, email: data.email, name: data.name || null, avatar: data.picture || null };
+}
+
+async function verifyAppleToken(idToken) {
+  // Decode header to get key ID
+  const [headerB64] = idToken.split(".");
+  const header = JSON.parse(Buffer.from(headerB64, "base64url").toString("utf8"));
+
+  // Fetch Apple's public keys
+  const keysRes = await fetch("https://appleid.apple.com/auth/keys");
+  const { keys } = await keysRes.json();
+  const jwk = keys.find((k) => k.kid === header.kid);
+  if (!jwk) throw new Error("Apple signing key not found");
+
+  // Import JWK and verify using Node crypto (no extra packages needed)
+  const { createPublicKey, createVerify } = require("crypto");
+  const pubKey = createPublicKey({ key: jwk, format: "jwk" });
+
+  const [, payloadB64, signatureB64] = idToken.split(".");
+  const signingInput = `${headerB64}.${payloadB64}`;
+  const signature = Buffer.from(signatureB64, "base64url");
+
+  const verifier = createVerify("SHA256");
+  verifier.update(signingInput);
+  const valid = verifier.verify(pubKey, signature);
+  if (!valid) throw new Error("Invalid Apple token signature");
+
+  const payload = JSON.parse(Buffer.from(payloadB64, "base64url").toString("utf8"));
+  if (payload.exp < Math.floor(Date.now() / 1000)) throw new Error("Apple token expired");
+
+  return { socialId: payload.sub, email: payload.email || null, name: null, avatar: null };
+}
+
 // ─── Social Login (Google / Apple) ───────────────────────────────────────────
 exports.socialLogin = async (req, res, next) => {
   try {
-    const { provider, socialId, name, email, avatar } = req.body;
+    const { provider, idToken } = req.body;
 
     if (!["google", "apple"].includes(provider)) {
       return res.status(400).json({ success: false, message: "Unsupported provider" });
     }
-    if (!socialId || !email) {
-      return res.status(400).json({ success: false, message: "socialId and email are required" });
+    if (!idToken) {
+      return res.status(400).json({ success: false, message: "idToken is required" });
     }
 
-    let user = await User.findOne({ $or: [{ socialId, socialProvider: provider }, { email }] });
+    // Verify the token against the provider — never trust client-supplied socialId
+    let verified;
+    try {
+      verified = provider === "google"
+        ? await verifyGoogleToken(idToken)
+        : await verifyAppleToken(idToken);
+    } catch (err) {
+      return res.status(401).json({ success: false, message: `Token verification failed: ${err.message}` });
+    }
+
+    const { socialId, email, name, avatar } = verified;
+
+    let user = await User.findOne({ $or: [{ socialId, socialProvider: provider }, ...(email ? [{ email }] : [])] });
 
     if (user) {
       if (!user.socialId) {
@@ -368,7 +423,17 @@ exports.socialLogin = async (req, res, next) => {
         await user.save({ validateBeforeSave: false });
       }
     } else {
-      user = await User.create({ name, email, socialId, socialProvider: provider, avatar, isEmailVerified: true });
+      if (!email) {
+        return res.status(400).json({ success: false, message: "Email is required to create an account" });
+      }
+      user = await User.create({
+        name: name || email.split("@")[0],
+        email,
+        socialId,
+        socialProvider: provider,
+        avatar,
+        isEmailVerified: true,
+      });
     }
 
     if (!user.isActive) {

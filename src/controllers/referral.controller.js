@@ -113,43 +113,55 @@ exports.validateReferralCode = async (req, res, next) => {
 // This is exported so order.controller.js can call it
 exports.processReferralReward = async (userId, orderId) => {
   try {
-    const user = await User.findById(userId).select("name referredBy referralRewardClaimed");
+    // Atomically claim the reward — prevents double-award from concurrent requests
+    const user = await User.findOneAndUpdate(
+      { _id: userId, referredBy: { $exists: true, $ne: null }, referralRewardClaimed: false },
+      { $set: { referralRewardClaimed: true } },
+      { new: false } // return the document BEFORE the update (to confirm we claimed it)
+    ).select("name referredBy loyaltyPoints");
 
-    // Only reward on the very first order
-    if (!user?.referredBy || user.referralRewardClaimed) return;
+    // null means either no referral, or already claimed — nothing to do
+    if (!user) return;
 
     const orderCount = await Order.countDocuments({
       user: userId,
       status: { $nin: ["cancelled", "refunded"] },
     });
-    if (orderCount !== 1) return; // Not the first order
+    if (orderCount !== 1) {
+      // Not the first completed order — roll back the claim flag
+      await User.findByIdAndUpdate(userId, { referralRewardClaimed: false });
+      return;
+    }
 
     const referrer = await User.findById(user.referredBy);
     if (!referrer) return;
 
-    // Reward the new user (referee)
-    user.loyaltyPoints += REFEREE_BONUS;
-    user.referralRewardClaimed = true;
-    await user.save({ validateBeforeSave: false });
-
+    // Reward the new user (referee) — use atomic update, then read back new balance
+    const updatedReferee = await User.findByIdAndUpdate(
+      userId,
+      { $inc: { loyaltyPoints: REFEREE_BONUS } },
+      { new: true }
+    );
     await LoyaltyTransaction.create({
       user: userId,
       type: "referral",
       points: REFEREE_BONUS,
-      balance: user.loyaltyPoints,
+      balance: updatedReferee.loyaltyPoints,
       description: `Welcome bonus – referred by ${referrer.name}`,
       order: orderId,
     });
 
-    // Reward the referrer
-    referrer.loyaltyPoints += REFERRER_BONUS;
-    await referrer.save({ validateBeforeSave: false });
-
+    // Reward the referrer atomically
+    const updatedReferrer = await User.findByIdAndUpdate(
+      referrer._id,
+      { $inc: { loyaltyPoints: REFERRER_BONUS } },
+      { new: true }
+    );
     await LoyaltyTransaction.create({
       user: referrer._id,
       type: "referral",
       points: REFERRER_BONUS,
-      balance: referrer.loyaltyPoints,
+      balance: updatedReferrer.loyaltyPoints,
       description: `Referral bonus – ${user.name || "A friend"} placed their first order`,
       order: orderId,
     });

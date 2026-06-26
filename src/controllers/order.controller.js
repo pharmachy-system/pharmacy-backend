@@ -5,8 +5,10 @@ const Coupon = require("../models/Coupon.model");
 const Prescription = require("../models/Prescription.model");
 const User = require("../models/User.model");
 const LoyaltyTransaction = require("../models/LoyaltyTransaction.model");
+const logger = require("../config/logger.config");
 const { createNotification } = require("../utils/notification.util");
-const sendEmail = require("../utils/email.util");
+const { sendOrderConfirmationEmail, sendOrderStatusEmail } = require("../utils/email.util");
+const Wallet = require("../models/Wallet.model");
 
 const LOYALTY_RATE = 1; // 1 point per SAR spent
 
@@ -126,15 +128,19 @@ exports.createOrder = async (req, res, next) => {
         });
       }
 
+      const unitPrice = medicine.isFlashSale && medicine.flashSalePrice
+        ? medicine.flashSalePrice
+        : medicine.finalPrice;
+
       orderItems.push({
         medicine: medicine._id,
         name: medicine.name,
         image: medicine.images?.[0]?.url || "",
-        price: medicine.finalPrice,
+        price: unitPrice,
         quantity: item.quantity,
         requiresPrescription: medicine.requiresPrescription,
       });
-      subtotal += medicine.finalPrice * item.quantity;
+      subtotal += unitPrice * item.quantity;
     }
 
     // Validate prescription if provided
@@ -289,14 +295,16 @@ exports.createOrder = async (req, res, next) => {
       await Prescription.findByIdAndUpdate(prescriptionId, { isUsed: true });
     }
 
-    // Send notification
-    await createNotification({
+    // Send notification + confirmation email (non-blocking)
+    createNotification({
       userId: req.user._id,
       type: "order",
       title: "Order Placed",
       body: `Your order ${orderNumber} has been placed successfully`,
       data: { orderId: order._id, orderNumber },
-    });
+    }).catch(() => {});
+
+    sendOrderConfirmationEmail(user, order).catch(() => {});
 
     res.status(201).json({ success: true, order });
   } catch (err) {
@@ -336,21 +344,68 @@ exports.updateOrderStatus = async (req, res, next) => {
       order.deliveredAt = new Date();
       order.paymentStatus = "paid";
     }
+
     if (status === "cancelled") {
       order.cancelledAt = new Date();
       order.cancellationReason = note;
+
       // Restore stock
       for (const item of order.items) {
         await Medicine.findByIdAndUpdate(item.medicine, {
           $inc: { stock: item.quantity, soldCount: -item.quantity },
         });
       }
+
+      // Refund wallet if paid via wallet
+      if (order.paymentMethod === "wallet" && order.paymentStatus === "paid") {
+        const wallet = await Wallet.findOne({ user: order.user._id });
+        if (wallet) {
+          wallet.balance += order.total;
+          wallet.transactions.push({
+            type: "refund",
+            amount: order.total,
+            description: `Refund for cancelled order ${order.orderNumber}`,
+            order: order._id,
+            balanceAfter: wallet.balance,
+          });
+          await wallet.save();
+        }
+        order.paymentStatus = "refunded";
+      } else if (order.paymentStatus === "paid") {
+        order.paymentStatus = "refunded";
+      }
+
+      // Roll back coupon usage
+      if (order.coupon) {
+        await Coupon.findByIdAndUpdate(order.coupon, {
+          $inc: { usageCount: -1 },
+          $pull: { usedBy: order.user._id },
+        });
+      }
+
+      // Roll back loyalty points earned on this order
+      if (order.loyaltyPointsEarned > 0) {
+        const updatedUser = await User.findByIdAndUpdate(
+          order.user._id,
+          { $inc: { loyaltyPoints: -order.loyaltyPointsEarned } },
+          { new: true }
+        );
+        await LoyaltyTransaction.create({
+          user: order.user._id,
+          type: "adjustment",
+          points: -order.loyaltyPointsEarned,
+          balance: Math.max(0, updatedUser.loyaltyPoints),
+          description: `Points reversed for cancelled order ${order.orderNumber}`,
+          order: order._id,
+        });
+      }
     }
+
     if (driverId && status === "shipped") order.driver = driverId;
 
     await order.save();
 
-    // Notify user
+    // Notify user + send status email
     const statusMessages = {
       confirmed: "Your order has been confirmed",
       processing: "Your order is being prepared",
@@ -360,13 +415,15 @@ exports.updateOrderStatus = async (req, res, next) => {
     };
 
     if (statusMessages[status]) {
-      await createNotification({
-        userId: order.user._id,
+      const populatedUser = order.user;
+      createNotification({
+        userId: populatedUser._id,
         type: "order",
         title: `Order ${status.charAt(0).toUpperCase() + status.slice(1)}`,
         body: statusMessages[status],
         data: { orderId: order._id, orderNumber: order.orderNumber },
-      });
+      }).catch(() => {});
+      sendOrderStatusEmail(populatedUser, order, status).catch(() => {});
     }
 
     res.json({ success: true, order });
@@ -398,7 +455,6 @@ exports.cancelOrder = async (req, res, next) => {
       updatedBy: req.user._id,
       timestamp: new Date(),
     });
-    await order.save();
 
     // Restore stock
     for (const item of order.items) {
@@ -407,13 +463,59 @@ exports.cancelOrder = async (req, res, next) => {
       });
     }
 
-    await createNotification({
+    // Refund wallet if paid via wallet
+    if (order.paymentMethod === "wallet" && order.paymentStatus === "paid") {
+      const wallet = await Wallet.findOne({ user: order.user });
+      if (wallet) {
+        wallet.balance += order.total;
+        wallet.transactions.push({
+          type: "refund",
+          amount: order.total,
+          description: `Refund for cancelled order ${order.orderNumber}`,
+          order: order._id,
+          balanceAfter: wallet.balance,
+        });
+        await wallet.save();
+      }
+      order.paymentStatus = "refunded";
+    } else if (order.paymentStatus === "paid") {
+      order.paymentStatus = "refunded";
+    }
+
+    // Roll back coupon usage
+    if (order.coupon) {
+      await Coupon.findByIdAndUpdate(order.coupon, {
+        $inc: { usageCount: -1 },
+        $pull: { usedBy: order.user },
+      });
+    }
+
+    // Roll back loyalty points earned on this order
+    if (order.loyaltyPointsEarned > 0) {
+      const updatedUser = await User.findByIdAndUpdate(
+        order.user,
+        { $inc: { loyaltyPoints: -order.loyaltyPointsEarned } },
+        { new: true }
+      );
+      await LoyaltyTransaction.create({
+        user: order.user,
+        type: "adjustment",
+        points: -order.loyaltyPointsEarned,
+        balance: Math.max(0, updatedUser.loyaltyPoints),
+        description: `Points reversed for cancelled order ${order.orderNumber}`,
+        order: order._id,
+      });
+    }
+
+    await order.save();
+
+    createNotification({
       userId: order.user,
       type: "order",
       title: "Order Cancelled",
       body: `Your order ${order.orderNumber} has been cancelled`,
       data: { orderId: order._id },
-    });
+    }).catch(() => {});
 
     res.json({ success: true, message: "Order cancelled", order });
   } catch (err) {

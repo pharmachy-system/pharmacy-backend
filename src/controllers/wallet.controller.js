@@ -1,4 +1,5 @@
 const Wallet = require("../models/Wallet.model");
+const AppError = require("../utils/AppError");
 
 const getOrCreateWallet = async (userId) => {
   let wallet = await Wallet.findOne({ user: userId });
@@ -17,38 +18,61 @@ exports.getWallet = async (req, res, next) => {
 
 exports.getTransactions = async (req, res, next) => {
   try {
-    const wallet = await getOrCreateWallet(req.user._id);
     const page = parseInt(req.query.page) || 1;
     const limit = Math.min(parseInt(req.query.limit) || 20, 100);
     const skip = (page - 1) * limit;
 
-    const transactions = wallet.transactions
-      .sort((a, b) => b.createdAt - a.createdAt)
-      .slice(skip, skip + limit);
+    // Use aggregation to avoid loading the full embedded array into memory
+    const [result] = await Wallet.aggregate([
+      { $match: { user: req.user._id } },
+      {
+        $project: {
+          balance: 1,
+          isActive: 1,
+          total: { $size: { $ifNull: ["$transactions", []] } },
+          transactions: {
+            $slice: [
+              { $sortArray: { input: { $ifNull: ["$transactions", []] }, sortBy: { createdAt: -1 } } },
+              skip,
+              limit,
+            ],
+          },
+        },
+      },
+    ]);
+
+    if (!result) {
+      return res.json({
+        success: true,
+        balance: 0,
+        transactions: [],
+        pagination: { page, limit, total: 0, pages: 0 },
+      });
+    }
 
     res.json({
       success: true,
-      balance: wallet.balance,
-      transactions,
-      pagination: { page, limit, total: wallet.transactions.length, pages: Math.ceil(wallet.transactions.length / limit) },
+      balance: result.balance,
+      transactions: result.transactions,
+      pagination: { page, limit, total: result.total, pages: Math.ceil(result.total / limit) },
     });
   } catch (err) {
     next(err);
   }
 };
 
-// Admin: Credit wallet (e.g., top-up, refund, bonus)
+// Admin: credit wallet (top-up, bonus, manual refund)
 exports.creditWallet = async (req, res, next) => {
   try {
     const { userId, amount, description, reference } = req.body;
-    if (!amount || amount <= 0) return res.status(400).json({ success: false, message: "Invalid amount" });
+    if (!amount || amount <= 0) return next(AppError.badRequest("Amount must be greater than 0"));
 
     const wallet = await getOrCreateWallet(userId || req.user._id);
-    const newBalance = wallet.balance + amount;
+    const newBalance = wallet.balance + Number(amount);
 
     wallet.transactions.push({
       type: "credit",
-      amount,
+      amount: Number(amount),
       description: description || "Wallet credit",
       reference,
       balanceAfter: newBalance,
@@ -62,22 +86,23 @@ exports.creditWallet = async (req, res, next) => {
   }
 };
 
-// Debit wallet (internal use)
+// User: debit wallet
 exports.debitWallet = async (req, res, next) => {
   try {
     const { amount, description, orderId } = req.body;
-    const wallet = await getOrCreateWallet(req.user._id);
+    if (!amount || amount <= 0) return next(AppError.badRequest("Amount must be greater than 0"));
 
+    const wallet = await getOrCreateWallet(req.user._id);
     if (wallet.balance < amount) {
-      return res.status(400).json({ success: false, message: "Insufficient wallet balance" });
+      return next(AppError.badRequest("Insufficient wallet balance"));
     }
 
-    const newBalance = wallet.balance - amount;
+    const newBalance = wallet.balance - Number(amount);
     wallet.transactions.push({
       type: "debit",
-      amount,
+      amount: Number(amount),
       description: description || "Payment",
-      order: orderId,
+      order: orderId || undefined,
       balanceAfter: newBalance,
     });
     wallet.balance = newBalance;

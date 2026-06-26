@@ -47,4 +47,9 @@ if (process.env.NODE_ENV !== "production") {
   );
 }
 
+// Morgan-compatible HTTP stream
+logger.stream = {
+  write: (message) => logger.http(message.trimEnd()),
+};
+
 module.exports = logger;

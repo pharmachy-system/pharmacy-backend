@@ -6,11 +6,12 @@ const {
 const { protect } = require("../middlewares/auth.middleware");
 const authorize = require("../middlewares/role.middleware");
 const { upload } = require("../utils/cloudinary.util");
+const { strictLimiter } = require("../middlewares/rateLimiter");
 
 router.get("/", getAllBrands);
 router.get("/:id", getBrandById);
-router.post("/", protect, authorize("admin"), upload.single("logo"), createBrand);
-router.put("/:id", protect, authorize("admin"), upload.single("logo"), updateBrand);
-router.delete("/:id", protect, authorize("admin"), deleteBrand);
+router.post("/", protect, strictLimiter, authorize("admin"), upload.single("logo"), createBrand);
+router.put("/:id", protect, strictLimiter, authorize("admin"), upload.single("logo"), updateBrand);
+router.delete("/:id", protect, strictLimiter, authorize("admin"), deleteBrand);
 
 module.exports = router;

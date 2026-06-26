@@ -11,4 +11,6 @@ const loyaltyTransactionSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 loyaltyTransactionSchema.index({ user: 1, createdAt: -1 });
+loyaltyTransactionSchema.index({ order: 1 }, { sparse: true });
+loyaltyTransactionSchema.index({ type: 1 });
 module.exports = mongoose.model("LoyaltyTransaction", loyaltyTransactionSchema);

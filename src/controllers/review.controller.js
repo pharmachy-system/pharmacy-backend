@@ -36,10 +36,15 @@ exports.getMedicineReviews = async (req, res, next) => {
     ]);
 
     // Rating distribution
-    const distribution = await Review.aggregate([
-      { $match: { medicine: reviews[0]?.medicine || null, status: "approved" } },
-      { $group: { _id: "$rating", count: { $sum: 1 } } },
-    ]);
+    const medicineObjectId = require("mongoose").Types.ObjectId.isValid(req.params.medicineId)
+      ? new (require("mongoose").Types.ObjectId)(req.params.medicineId)
+      : null;
+    const distribution = medicineObjectId
+      ? await Review.aggregate([
+          { $match: { medicine: medicineObjectId, status: "approved" } },
+          { $group: { _id: "$rating", count: { $sum: 1 } } },
+        ])
+      : [];
 
     res.json({
       success: true,

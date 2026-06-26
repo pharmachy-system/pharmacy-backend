@@ -8,7 +8,7 @@ const crypto = require('crypto');
 const swaggerUi = require('swagger-ui-express');
 
 // Utils
-const logger = require('./utils/logger');
+const logger = require('./config/logger.config');
 const { apiLimiter } = require('./middlewares/rateLimiter');
 const sanitize = require('./middlewares/sanitize.middleware');
 const notFound = require('./middlewares/notFound');

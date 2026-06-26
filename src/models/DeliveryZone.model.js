@@ -17,4 +17,7 @@ const deliveryZoneSchema = new mongoose.Schema({
   }],
 }, { timestamps: true });
 
+deliveryZoneSchema.index({ isActive: 1 });
+deliveryZoneSchema.index({ cities: 1 });
+
 module.exports = mongoose.model("DeliveryZone", deliveryZoneSchema);

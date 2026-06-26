@@ -1,32 +1,52 @@
 const Order = require("../models/Order.model");
 const Medicine = require("../models/Medicine.model");
 
-// GET /api/reports/sales?startDate=&endDate=
+// GET /api/reports/sales?startDate=&endDate=&page=&limit=
 exports.getSalesReport = async (req, res, next) => {
   try {
     const { startDate, endDate } = req.query;
-    const filter = { paymentStatus: "paid" };
+    const page = parseInt(req.query.page) || 1;
+    const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+    const skip = (page - 1) * limit;
 
+    const filter = { paymentStatus: "paid" };
     if (startDate || endDate) {
       filter.createdAt = {};
       if (startDate) filter.createdAt.$gte = new Date(startDate);
       if (endDate) filter.createdAt.$lte = new Date(endDate);
     }
 
-    const orders = await Order.find(filter)
-      .populate("user", "name email")
-      .populate("items.medicine", "name")
-      .sort("-createdAt");
-
-    const totalRevenue = orders.reduce((sum, o) => sum + (o.total || 0), 0);
+    const [orders, total, [agg]] = await Promise.all([
+      Order.find(filter)
+        .populate("user", "name email")
+        .populate("items.medicine", "name")
+        .sort("-createdAt")
+        .skip(skip)
+        .limit(limit),
+      Order.countDocuments(filter),
+      Order.aggregate([
+        { $match: filter },
+        {
+          $group: {
+            _id: null,
+            totalRevenue: { $sum: "$total" },
+            totalDiscount: { $sum: "$couponDiscount" },
+            avgOrderValue: { $avg: "$total" },
+          },
+        },
+      ]),
+    ]);
 
     res.json({
       success: true,
       data: {
-        totalOrders: orders.length,
-        totalRevenue: parseFloat(totalRevenue.toFixed(2)),
+        totalOrders: total,
+        totalRevenue: parseFloat((agg?.totalRevenue || 0).toFixed(2)),
+        totalDiscount: parseFloat((agg?.totalDiscount || 0).toFixed(2)),
+        avgOrderValue: parseFloat((agg?.avgOrderValue || 0).toFixed(2)),
         orders,
       },
+      pagination: { page, limit, total, pages: Math.ceil(total / limit) },
     });
   } catch (err) {
     next(err);

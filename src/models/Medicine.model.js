@@ -25,7 +25,7 @@ const medicineSchema = new mongoose.Schema({
   usage: { type: String, trim: true },
   sideEffects: { type: String, trim: true },
   warnings: { type: String, trim: true },
-  ingredients: { type: String, trim: true },
+  ingredients: [{ type: String, trim: true }],
   storageConditions: { type: String, trim: true },
   expiryDate: { type: Date },
   manufacturer: { type: String, trim: true },
@@ -44,11 +44,13 @@ const medicineSchema = new mongoose.Schema({
   viewCount: { type: Number, default: 0 },
 }, { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } });
 
-medicineSchema.index({ name: "text", description: "text", tags: "text" });
-// slug index created by unique: true above
+medicineSchema.index({ name: "text", nameAr: "text", description: "text", tags: "text" });
 medicineSchema.index({ category: 1, isActive: 1 });
-medicineSchema.index({ brand: 1 });
-medicineSchema.index({ price: 1 });
+medicineSchema.index({ brand: 1, isActive: 1 });
+medicineSchema.index({ finalPrice: 1, isActive: 1 });
+medicineSchema.index({ isFlashSale: 1, flashSaleEnd: 1, isActive: 1 });
+medicineSchema.index({ isFeatured: 1, isActive: 1 });
+medicineSchema.index({ soldCount: -1 });
 
 medicineSchema.virtual("isLowStock").get(function () { return this.stock > 0 && this.stock <= this.lowStockThreshold; });
 medicineSchema.virtual("isOutOfStock").get(function () { return this.stock === 0; });

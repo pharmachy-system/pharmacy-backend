@@ -89,10 +89,12 @@ describe("Audit Log API", () => {
 });
 
 describe("API Versioning", () => {
-  it("/api/health → 404 (health not under /api)", async () => {
+  it("/health returns 200 with version from package.json", async () => {
     const res = await request(app).get("/health");
     expect(res.status).toBe(200);
-    expect(res.body.version).toBe("v1");
+    expect(res.body.version).toBe(require("../package.json").version);
+    expect(res.body.redis).toBeDefined();
+    expect(res.body.database).toBeDefined();
   });
 
   it("/api/app/home works at legacy path", async () => {

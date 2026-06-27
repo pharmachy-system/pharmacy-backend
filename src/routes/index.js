@@ -71,8 +71,10 @@ module.exports = (app) => {
   // ── System — stays at /health (not versioned) ─────────────────────────────────
   app.get("/health", async (req, res) => {
     const mongoose = require("mongoose");
+    const { version } = require("../../package.json");
     const mem = process.memoryUsage();
 
+    // ── MongoDB ────────────────────────────────────────────────────────────────
     const readyState = mongoose.connection.readyState;
     const dbStates = ["disconnected", "connected", "connecting", "disconnecting"];
     const dbStatus = dbStates[readyState] || "unknown";
@@ -88,12 +90,33 @@ module.exports = (app) => {
       }
     }
 
+    // ── Redis (optional) ──────────────────────────────────────────────────────
+    let redisStatus = "not_configured";
+    let redisPingMs = null;
+    if (process.env.REDIS_URL) {
+      try {
+        const { createClient } = require("redis");
+        const client = createClient({ url: process.env.REDIS_URL });
+        await client.connect();
+        const t0 = Date.now();
+        await client.ping();
+        redisPingMs = Date.now() - t0;
+        await client.disconnect();
+        redisStatus = "connected";
+      } catch (_) {
+        redisStatus = "error";
+      }
+    }
+
+    const overallOk = readyState === 1 &&
+      (process.env.REDIS_URL ? redisStatus === "connected" : true);
+
     res.json({
-      success:     true,
-      status:      readyState === 1 ? "ok" : "degraded",
-      version:     "v1",
-      environment: process.env.NODE_ENV || "development",
-      timestamp:   new Date().toISOString(),
+      success:      true,
+      status:       overallOk ? "ok" : "degraded",
+      version,
+      environment:  process.env.NODE_ENV || "development",
+      timestamp:    new Date().toISOString(),
       uptimeSeconds: Math.floor(process.uptime()),
       memory: {
         heapUsedMB:  parseFloat((mem.heapUsed  / 1048576).toFixed(1)),
@@ -101,6 +124,7 @@ module.exports = (app) => {
         rssMB:       parseFloat((mem.rss       / 1048576).toFixed(1)),
       },
       database: { status: dbStatus, pingMs: dbPingMs },
+      redis:    { status: redisStatus, pingMs: redisPingMs },
     });
   });
 };

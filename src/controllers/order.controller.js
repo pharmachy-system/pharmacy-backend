@@ -422,6 +422,17 @@ exports.updateOrderStatus = async (req, res, next) => {
     if (status === "delivered") {
       order.deliveredAt = new Date();
       order.paymentStatus = "paid";
+      // Mark COD payment record complete (mirrors what markDelivered does for driver path)
+      if (order.paymentMethod === "cash") {
+        Payment.findOneAndUpdate(
+          { order: order._id, method: "cash" },
+          {
+            $set:         { status: "completed", paidAt: new Date() },
+            $setOnInsert: { user: order.user._id, amount: order.total, currency: "SAR" },
+          },
+          { upsert: true }
+        ).catch((e) => logger.error("[ORDER] COD payment record update failed", { err: e.message }));
+      }
     }
 
     if (status === "cancelled") {
@@ -435,19 +446,24 @@ exports.updateOrderStatus = async (req, res, next) => {
         });
       }
 
-      // Refund wallet if paid via wallet
+      // Atomically refund wallet to prevent double-refund race condition
       if (order.paymentMethod === "wallet" && order.paymentStatus === "paid") {
-        const wallet = await Wallet.findOne({ user: order.user._id });
-        if (wallet) {
-          wallet.balance += order.total;
-          wallet.transactions.push({
-            type: "refund",
-            amount: order.total,
-            description: `Refund for cancelled order ${order.orderNumber}`,
-            order: order._id,
-            balanceAfter: wallet.balance,
+        const refundAmt = order.total;
+        const refunded = await Wallet.findOneAndUpdate(
+          { user: order.user._id },
+          { $inc: { balance: refundAmt } },
+          { new: true }
+        );
+        if (refunded) {
+          await Wallet.findByIdAndUpdate(refunded._id, {
+            $push: {
+              transactions: {
+                type: "refund", amount: refundAmt,
+                description: `Refund for cancelled order ${order.orderNumber}`,
+                order: order._id, balanceAfter: refunded.balance, createdAt: new Date(),
+              },
+            },
           });
-          await wallet.save();
         }
         order.paymentStatus = "refunded";
       } else if (order.paymentStatus === "paid") {
@@ -542,19 +558,24 @@ exports.cancelOrder = async (req, res, next) => {
       });
     }
 
-    // Refund wallet if paid via wallet
+    // Atomically refund wallet to prevent double-refund race condition
     if (order.paymentMethod === "wallet" && order.paymentStatus === "paid") {
-      const wallet = await Wallet.findOne({ user: order.user });
-      if (wallet) {
-        wallet.balance += order.total;
-        wallet.transactions.push({
-          type: "refund",
-          amount: order.total,
-          description: `Refund for cancelled order ${order.orderNumber}`,
-          order: order._id,
-          balanceAfter: wallet.balance,
+      const refundAmt = order.total;
+      const refunded = await Wallet.findOneAndUpdate(
+        { user: order.user },
+        { $inc: { balance: refundAmt } },
+        { new: true }
+      );
+      if (refunded) {
+        await Wallet.findByIdAndUpdate(refunded._id, {
+          $push: {
+            transactions: {
+              type: "refund", amount: refundAmt,
+              description: `Refund for cancelled order ${order.orderNumber}`,
+              order: order._id, balanceAfter: refunded.balance, createdAt: new Date(),
+            },
+          },
         });
-        await wallet.save();
       }
       order.paymentStatus = "refunded";
     } else if (order.paymentStatus === "paid") {

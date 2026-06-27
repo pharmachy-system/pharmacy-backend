@@ -19,7 +19,7 @@ exports.getProfile = async (req, res, next) => {
 // ─── Update Profile ───────────────────────────────────────────────────────────
 exports.updateProfile = async (req, res, next) => {
   try {
-    const allowed = ["name", "phone", "fcmToken"];
+    const allowed = ["name", "phone", "fcmToken", "gender", "birthDate", "language", "timezone"];
     const updates = {};
     allowed.forEach((k) => { if (req.body[k] !== undefined) updates[k] = req.body[k]; });
 

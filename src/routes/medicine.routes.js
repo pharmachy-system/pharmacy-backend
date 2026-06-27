@@ -8,6 +8,8 @@ const {
 const { protect } = require("../middlewares/auth.middleware");
 const authorize = require("../middlewares/role.middleware");
 const { upload } = require("../utils/cloudinary.util");
+const { joiValidate } = require("../middlewares/joiValidate.middleware");
+const { schemas } = require("../validators/joi.validators");
 
 // ── Public ────────────────────────────────────────────────────────────────────
 router.get("/", getAllMedicines);
@@ -22,9 +24,9 @@ router.get("/alerts/expiring", protect, authorize("admin", "pharmacist"), getExp
 router.get("/:id", getMedicineById);
 
 // ── Admin CRUD ────────────────────────────────────────────────────────────────
-router.post("/", protect, authorize("admin", "pharmacist"), upload.array("images", 5), createMedicine);
-router.put("/:id", protect, authorize("admin", "pharmacist"), upload.array("images", 5), updateMedicine);
+router.post("/", protect, authorize("admin", "pharmacist"), upload.array("images", 5), joiValidate(schemas.medicine.create), createMedicine);
+router.put("/:id", protect, authorize("admin", "pharmacist"), upload.array("images", 5), joiValidate(schemas.medicine.update), updateMedicine);
 router.delete("/:id", protect, authorize("admin"), deleteMedicine);
-router.patch("/:id/stock", protect, authorize("admin", "pharmacist"), updateStock);
+router.patch("/:id/stock", protect, authorize("admin", "pharmacist"), joiValidate(schemas.medicine.updateStock), updateStock);
 
 module.exports = router;

@@ -38,6 +38,10 @@ const userSchema = new mongoose.Schema({
   referredBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   wallet: { type: mongoose.Schema.Types.ObjectId, ref: "Wallet" },
   fcmToken: { type: String },
+  gender: { type: String, enum: ["male", "female"] },
+  birthDate: { type: Date },
+  language: { type: String, enum: ["ar", "en"], default: "ar" },
+  timezone: { type: String },
   blockedReason: { type: String },
   referralRewardClaimed: { type: Boolean, default: false },
 

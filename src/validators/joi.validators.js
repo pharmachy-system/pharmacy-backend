@@ -418,7 +418,8 @@ const order = {
         "any.only":     m("Invalid order status", "حالة الطلب غير صالحة"),
         "any.required": m("Status is required", "الحالة مطلوبة"),
       }),
-    notes:          Joi.string().max(500).optional(),
+    note:           Joi.string().max(500).optional(),
+    driverId:       objectId().optional(),
     trackingNumber: Joi.string().max(100).optional(),
   }),
 
@@ -605,6 +606,19 @@ const flashSale = {
     }),
     medicineIds: Joi.array().items(objectId()).optional(),
     isActive:    Joi.boolean().default(true),
+  }),
+
+  update: Joi.object({
+    name:        Joi.string().trim().optional(),
+    description: Joi.string().max(500).optional(),
+    discount:    Joi.number().min(1).max(99).optional().messages({
+      "number.min": m("Discount must be at least 1%", "الخصم يجب أن يكون 1% على الأقل"),
+      "number.max": m("Discount cannot exceed 99%", "الخصم لا يمكن أن يتجاوز 99%"),
+    }),
+    startDate:   Joi.date().optional(),
+    endDate:     Joi.date().optional(),
+    medicineIds: Joi.array().items(objectId()).optional(),
+    isActive:    Joi.boolean().optional(),
   }),
 };
 

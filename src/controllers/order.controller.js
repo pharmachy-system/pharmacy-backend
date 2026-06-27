@@ -172,6 +172,13 @@ exports.createOrder = async (req, res, next) => {
       const coupon = await Coupon.findOne({ code: couponCode.toUpperCase() });
       if (coupon && coupon.isValid()) {
         const userUsage = coupon.usedBy.filter((id) => id.toString() === req.user._id.toString()).length;
+        // For first-order-only coupons, reject if the user has placed any previous orders
+        const previousOrderCount = coupon.isFirstOrderOnly
+          ? await Order.countDocuments({ user: req.user._id, status: { $nin: ["cancelled"] } })
+          : 0;
+        if (coupon.isFirstOrderOnly && previousOrderCount > 0) {
+          return res.status(400).json({ success: false, message: "This coupon is valid for first orders only" });
+        }
         if (userUsage < coupon.perUserLimit && subtotal >= coupon.minOrderAmount) {
           couponDiscount =
             coupon.type === "percentage" ? (subtotal * coupon.value) / 100 : coupon.value;

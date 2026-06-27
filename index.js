@@ -4,6 +4,20 @@ const app       = require("./src/app");
 const connectDB = require("./src/config/db");
 const { startJobs, stopJobs } = require("./src/jobs");
 
+// Warn about optional integrations that are not configured
+const optionalIntegrations = {
+  "SENTRY_DSN":             "Sentry error tracking disabled",
+  "CLOUDINARY_CLOUD_NAME":  "Image upload (Cloudinary) not configured — uploads will fail",
+  "SMTP_HOST":              "Email (SMTP) not configured — transactional emails disabled",
+  "TWILIO_SID":             "SMS (Twilio) not configured — SMS notifications disabled",
+  "FIREBASE_PROJECT_ID":    "Push notifications (Firebase) not configured",
+  "ZATCA_VAT_NUMBER":       "ZATCA VAT number not set — using default placeholder",
+  "STRIPE_SECRET_KEY":      "Stripe not configured — card payments disabled",
+};
+for (const [key, msg] of Object.entries(optionalIntegrations)) {
+  if (!process.env[key]) logger.warn(`[CONFIG] ${msg} (set ${key} to enable)`);
+}
+
 const PORT = config.port || 5000;
 let server;
 

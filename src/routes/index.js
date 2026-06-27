@@ -62,19 +62,45 @@ module.exports = (app) => {
   router.use("/admin/dashboard",  require("./admin/dashboard.routes"));
   router.use("/admin/inventory",  require("./admin/inventory.routes"));
   router.use("/admin/audit",      require("./admin/audit.routes"));
+  router.use("/admin/system",     require("./admin/system.routes"));
 
   // ── Mount at both /api (legacy) and /api/v1 (versioned) ──────────────────────
   app.use("/api",    router);
   app.use("/api/v1", router);
 
   // ── System — stays at /health (not versioned) ─────────────────────────────────
-  app.get("/health", (req, res) =>
+  app.get("/health", async (req, res) => {
+    const mongoose = require("mongoose");
+    const mem = process.memoryUsage();
+
+    const readyState = mongoose.connection.readyState;
+    const dbStates = ["disconnected", "connected", "connecting", "disconnecting"];
+    const dbStatus = dbStates[readyState] || "unknown";
+
+    let dbPingMs = null;
+    if (readyState === 1) {
+      try {
+        const t0 = Date.now();
+        await mongoose.connection.db.admin().ping();
+        dbPingMs = Date.now() - t0;
+      } catch (_) {
+        // ping failed — dbPingMs stays null
+      }
+    }
+
     res.json({
       success:     true,
-      status:      "ok",
+      status:      readyState === 1 ? "ok" : "degraded",
       version:     "v1",
-      environment: process.env.NODE_ENV,
+      environment: process.env.NODE_ENV || "development",
       timestamp:   new Date().toISOString(),
-    })
-  );
+      uptimeSeconds: Math.floor(process.uptime()),
+      memory: {
+        heapUsedMB:  parseFloat((mem.heapUsed  / 1048576).toFixed(1)),
+        heapTotalMB: parseFloat((mem.heapTotal / 1048576).toFixed(1)),
+        rssMB:       parseFloat((mem.rss       / 1048576).toFixed(1)),
+      },
+      database: { status: dbStatus, pingMs: dbPingMs },
+    });
+  });
 };

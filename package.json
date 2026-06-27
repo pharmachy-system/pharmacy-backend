@@ -4,7 +4,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "start:prod": "NODE_ENV=production node index.js",
+    "start:prod": "NODE_ENV=production node scripts/ensure-indexes.js && NODE_ENV=production node index.js",
     "dev": "nodemon index.js",
     "seed": "node scripts/seed.js",
     "seed:fresh": "node scripts/seed.js --fresh",

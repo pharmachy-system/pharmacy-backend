@@ -377,10 +377,11 @@ const order = {
     items: Joi.array().items(
       Joi.object({
         medicine: objectId().required(),
-        quantity: Joi.number().integer().min(1).required().messages({ "any.required": m("Quantity is required", "الكمية مطلوبة") }),
+        quantity: Joi.number().integer().min(1).max(99).required().messages({ "any.required": m("Quantity is required", "الكمية مطلوبة") }),
       })
-    ).min(1).required().messages({
+    ).min(1).max(50).required().messages({
       "array.min":    m("Order must have at least one item", "الطلب يجب أن يحتوي على عنصر واحد على الأقل"),
+      "array.max":    m("Order cannot exceed 50 items", "لا يمكن أن يتجاوز الطلب 50 عنصراً"),
       "any.required": m("Order items are required", "عناصر الطلب مطلوبة"),
     }),
     paymentMethod:    Joi.string().valid("cash", "card", "wallet").required().messages({

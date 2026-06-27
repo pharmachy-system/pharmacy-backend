@@ -10,8 +10,8 @@ exports.getAllPrescriptions = async (req, res, next) => {
     const skip = (page - 1) * limit;
 
     const filter = {};
-    if (req.query.status) filter.status = req.query.status;
-    if (req.query.userId) filter.user = req.query.userId;
+    if (typeof req.query.status === "string") filter.status = req.query.status;
+    if (typeof req.query.userId === "string") filter.user   = req.query.userId;
 
     const [prescriptions, total] = await Promise.all([
       Prescription.find(filter)

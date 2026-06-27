@@ -161,8 +161,8 @@ exports.getAllReviews = async (req, res, next) => {
     const skip = (page - 1) * limit;
 
     const filter = {};
-    if (req.query.status) filter.status = req.query.status;
-    if (req.query.medicineId) filter.medicine = req.query.medicineId;
+    if (typeof req.query.status     === "string") filter.status   = req.query.status;
+    if (typeof req.query.medicineId === "string") filter.medicine = req.query.medicineId;
 
     const [reviews, total] = await Promise.all([
       Review.find(filter)

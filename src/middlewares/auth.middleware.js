@@ -16,7 +16,7 @@ const protect = async (req, res, next) => {
   // 2. Verify JWT signature + expiry
   let decoded;
   try {
-    decoded = jwt.verify(token, process.env.JWT_SECRET);
+    decoded = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ["HS256"] });
   } catch (err) {
     const msg =
       err.name === "TokenExpiredError"
@@ -65,7 +65,7 @@ const optionalProtect = async (req, _res, next) => {
     }
     if (!token) return next();
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ["HS256"] });
     const user = await User.findById(decoded.id);
     if (user && user.isActive) req.user = user;
   } catch (_) { /* invalid token — silently ignore */ }

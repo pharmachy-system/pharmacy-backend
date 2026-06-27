@@ -11,24 +11,33 @@ exports.getAllMedicines = async (req, res, next) => {
 
     const filter = { isActive: true };
 
-    if (req.query.search) filter.$text = { $search: req.query.search };
-    if (req.query.category) filter.category = req.query.category;
-    if (req.query.brand) filter.brand = req.query.brand;
-    if (req.query.requiresPrescription !== undefined)
-      filter.requiresPrescription = req.query.requiresPrescription === "true";
+    // Coerce query params to primitives — prevents object injection via ?category[$ne]=x
+    const qSearch    = typeof req.query.search    === "string" ? req.query.search    : undefined;
+    const qCategory  = typeof req.query.category  === "string" ? req.query.category  : undefined;
+    const qBrand     = typeof req.query.brand     === "string" ? req.query.brand     : undefined;
+    const qDosage    = typeof req.query.dosageForm === "string" ? req.query.dosageForm : undefined;
+    const qTags      = typeof req.query.tags      === "string" ? req.query.tags      : undefined;
+    const qMinPrice  = typeof req.query.minPrice  === "string" ? req.query.minPrice  : undefined;
+    const qMaxPrice  = typeof req.query.maxPrice  === "string" ? req.query.maxPrice  : undefined;
+    const qRxFilter  = typeof req.query.requiresPrescription === "string" ? req.query.requiresPrescription : undefined;
+
+    if (qSearch)    filter.$text = { $search: qSearch };
+    if (qCategory)  filter.category = qCategory;
+    if (qBrand)     filter.brand = qBrand;
+    if (qRxFilter !== undefined) filter.requiresPrescription = qRxFilter === "true";
     if (req.query.inStock === "true") filter.stock = { $gt: 0 };
     if (req.query.featured === "true") filter.isFeatured = true;
     if (req.query.flashSale === "true") {
       filter.isFlashSale = true;
       filter.flashSaleEnd = { $gt: new Date() };
     }
-    if (req.query.minPrice || req.query.maxPrice) {
+    if (qMinPrice || qMaxPrice) {
       filter.finalPrice = {};
-      if (req.query.minPrice) filter.finalPrice.$gte = parseFloat(req.query.minPrice);
-      if (req.query.maxPrice) filter.finalPrice.$lte = parseFloat(req.query.maxPrice);
+      if (qMinPrice) filter.finalPrice.$gte = parseFloat(qMinPrice);
+      if (qMaxPrice) filter.finalPrice.$lte = parseFloat(qMaxPrice);
     }
-    if (req.query.dosageForm) filter.dosageForm = req.query.dosageForm;
-    if (req.query.tags) filter.tags = { $in: req.query.tags.split(",") };
+    if (qDosage) filter.dosageForm = qDosage;
+    if (qTags)   filter.tags = { $in: qTags.split(",") };
 
     const sortMap = {
       price_asc: { finalPrice: 1 },
@@ -309,19 +318,24 @@ exports.smartSearch = async (req, res, next) => {
       { tags:   { $regex: escaped, $options: "i" } },
     ]};
 
-    // Apply optional facet filters on top of the search
-    if (req.query.category) { textFilter.category = req.query.category; regexFilter.category = req.query.category; }
-    if (req.query.brand)    { textFilter.brand    = req.query.brand;    regexFilter.brand    = req.query.brand; }
-    if (req.query.minPrice || req.query.maxPrice) {
+    // Apply optional facet filters — coerce to string to prevent object injection via qs
+    const sCategory = typeof req.query.category === "string" ? req.query.category : undefined;
+    const sBrand    = typeof req.query.brand    === "string" ? req.query.brand    : undefined;
+    const sMinPrice = typeof req.query.minPrice === "string" ? req.query.minPrice : undefined;
+    const sMaxPrice = typeof req.query.maxPrice === "string" ? req.query.maxPrice : undefined;
+    const sRx       = typeof req.query.requiresPrescription === "string" ? req.query.requiresPrescription : undefined;
+    if (sCategory) { textFilter.category = sCategory; regexFilter.category = sCategory; }
+    if (sBrand)    { textFilter.brand    = sBrand;    regexFilter.brand    = sBrand; }
+    if (sMinPrice || sMaxPrice) {
       const pf = {};
-      if (req.query.minPrice) pf.$gte = parseFloat(req.query.minPrice);
-      if (req.query.maxPrice) pf.$lte = parseFloat(req.query.maxPrice);
+      if (sMinPrice) pf.$gte = parseFloat(sMinPrice);
+      if (sMaxPrice) pf.$lte = parseFloat(sMaxPrice);
       textFilter.finalPrice  = pf;
       regexFilter.finalPrice = pf;
     }
     if (req.query.inStock === "true") { textFilter.stock = { $gt: 0 }; regexFilter.stock = { $gt: 0 }; }
-    if (req.query.requiresPrescription !== undefined) {
-      const val = req.query.requiresPrescription === "true";
+    if (sRx !== undefined) {
+      const val = sRx === "true";
       textFilter.requiresPrescription  = val;
       regexFilter.requiresPrescription = val;
     }

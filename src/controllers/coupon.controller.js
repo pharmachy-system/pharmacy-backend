@@ -8,7 +8,7 @@ exports.getAllCoupons = async (req, res, next) => {
 
     const filter = {};
     if (req.query.isActive !== undefined) filter.isActive = req.query.isActive === "true";
-    if (req.query.type) filter.type = req.query.type;
+    if (typeof req.query.type === "string") filter.type = req.query.type;
 
     const [coupons, total] = await Promise.all([
       Coupon.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),

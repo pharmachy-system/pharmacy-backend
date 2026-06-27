@@ -30,14 +30,14 @@ exports.getAllOrders = async (req, res, next) => {
     const skip = (page - 1) * limit;
 
     const filter = {};
-    if (req.query.status) filter.status = req.query.status;
-    if (req.query.paymentMethod) filter.paymentMethod = req.query.paymentMethod;
-    if (req.query.paymentStatus) filter.paymentStatus = req.query.paymentStatus;
-    if (req.query.userId) filter.user = req.query.userId;
+    if (typeof req.query.status        === "string") filter.status        = req.query.status;
+    if (typeof req.query.paymentMethod === "string") filter.paymentMethod = req.query.paymentMethod;
+    if (typeof req.query.paymentStatus === "string") filter.paymentStatus = req.query.paymentStatus;
+    if (typeof req.query.userId        === "string") filter.user          = req.query.userId;
     if (req.query.startDate || req.query.endDate) {
       filter.createdAt = {};
-      if (req.query.startDate) filter.createdAt.$gte = new Date(req.query.startDate);
-      if (req.query.endDate) filter.createdAt.$lte = new Date(req.query.endDate);
+      if (typeof req.query.startDate === "string") filter.createdAt.$gte = new Date(req.query.startDate);
+      if (typeof req.query.endDate   === "string") filter.createdAt.$lte = new Date(req.query.endDate);
     }
 
     const [orders, total] = await Promise.all([
@@ -87,7 +87,7 @@ exports.getUserOrders = async (req, res, next) => {
     const skip = (page - 1) * limit;
 
     const filter = { user: req.user._id };
-    if (req.query.status) filter.status = req.query.status;
+    if (typeof req.query.status === "string") filter.status = req.query.status;
 
     const [orders, total] = await Promise.all([
       Order.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
@@ -205,14 +205,13 @@ exports.createOrder = async (req, res, next) => {
       loyaltyPointsUsed = Math.min(user.loyaltyPoints, maxPointsDiscount);
     }
 
-    // Wallet payment — paymentMethod:"wallet" always deducts balance
+    // Wallet payment — pre-check only (actual atomic debit happens after stock is confirmed)
     let walletUsed = 0;
-    let walletDoc = null;
     if (paymentMethod === "wallet") {
       const WalletModel = require("../models/Wallet.model");
-      walletDoc = await WalletModel.findOne({ user: req.user._id });
       const orderTotal = subtotal + deliveryFee - couponDiscount - loyaltyPointsUsed;
-      if (!walletDoc || walletDoc.balance < orderTotal) {
+      const wCheck = await WalletModel.findOne({ user: req.user._id, isActive: true });
+      if (!wCheck || wCheck.balance < orderTotal) {
         return res.status(400).json({ success: false, message: "Insufficient wallet balance" });
       }
       walletUsed = orderTotal;
@@ -221,7 +220,7 @@ exports.createOrder = async (req, res, next) => {
     const total = Math.max(0, subtotal + deliveryFee - couponDiscount - loyaltyPointsUsed);
 
     // Generate order number
-    const orderNumber = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const orderNumber = `ORD-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
 
     const orderBase = {
       orderNumber,
@@ -248,19 +247,6 @@ exports.createOrder = async (req, res, next) => {
     orderBase.vatAmount = calcVat(orderPretaxTotal(orderBase));
     const order = await Order.create(orderBase);
 
-    // Deduct wallet balance
-    if (walletUsed > 0 && walletDoc) {
-      walletDoc.transactions.push({
-        type: "debit",
-        amount: walletUsed,
-        description: `Payment for order ${orderNumber}`,
-        order: order._id,
-        balanceAfter: walletDoc.balance - walletUsed,
-      });
-      walletDoc.balance -= walletUsed;
-      await walletDoc.save();
-    }
-
     // Deduct stock — atomic check+update guards against concurrent oversell
     const decremented = [];
     for (const item of items) {
@@ -282,37 +268,88 @@ exports.createOrder = async (req, res, next) => {
       decremented.push(item);
     }
 
-    // Mark coupon as used
-    if (appliedCoupon) {
-      appliedCoupon.usageCount += 1;
-      appliedCoupon.usedBy.push(req.user._id);
-      await appliedCoupon.save();
+    // Atomically debit wallet — guards against concurrent orders draining balance
+    if (walletUsed > 0) {
+      const WalletModel = require("../models/Wallet.model");
+      const debited = await WalletModel.findOneAndUpdate(
+        { user: req.user._id, balance: { $gte: walletUsed }, isActive: true },
+        { $inc: { balance: -walletUsed } },
+        { new: true }
+      );
+      if (!debited) {
+        // Concurrent order drained the wallet — restore stock and cancel
+        for (const prev of decremented) {
+          await Medicine.findByIdAndUpdate(prev.medicine, { $inc: { stock: prev.quantity, soldCount: -prev.quantity } });
+        }
+        await Order.findByIdAndUpdate(order._id, { status: "cancelled", cancellationReason: "Insufficient wallet balance" });
+        return res.status(400).json({ success: false, message: "Insufficient wallet balance" });
+      }
+      await WalletModel.findByIdAndUpdate(debited._id, {
+        $push: {
+          transactions: {
+            type: "debit",
+            amount: walletUsed,
+            description: `Payment for order ${orderNumber}`,
+            order: order._id,
+            balanceAfter: debited.balance,
+            createdAt: new Date(),
+          },
+        },
+      });
     }
 
-    // Deduct loyalty points
+    // Atomically mark coupon as used — prevents concurrent orders from over-using the coupon
+    if (appliedCoupon) {
+      const couponUpdated = await Coupon.findOneAndUpdate(
+        {
+          _id: appliedCoupon._id,
+          isActive: true,
+          $or: [{ usageLimit: null }, { usageCount: { $lt: appliedCoupon.usageLimit } }],
+        },
+        { $inc: { usageCount: 1 }, $push: { usedBy: req.user._id } }
+      );
+      // If coupon was exhausted by a concurrent order, the discount already applied to this
+      // order's total stays (user got the deal); only the tracking increment is lost.
+      // This is intentional: we honour the price shown at checkout.
+      if (!couponUpdated) {
+        // Coupon exhausted concurrently — log but do not fail the order
+        const logger = require("../utils/logger");
+        logger.warn(`Coupon ${appliedCoupon.code} exhausted during concurrent checkout for order ${orderNumber}`);
+      }
+    }
+
+    // Atomically deduct loyalty points — prevents concurrent double-spending
     if (loyaltyPointsUsed > 0) {
-      user.loyaltyPoints -= loyaltyPointsUsed;
-      await user.save({ validateBeforeSave: false });
+      const updatedUser = await User.findOneAndUpdate(
+        { _id: req.user._id, loyaltyPoints: { $gte: loyaltyPointsUsed } },
+        { $inc: { loyaltyPoints: -loyaltyPointsUsed } },
+        { new: true }
+      );
+      const remainingAfterRedeem = updatedUser ? updatedUser.loyaltyPoints : user.loyaltyPoints - loyaltyPointsUsed;
       await LoyaltyTransaction.create({
         user: req.user._id,
         type: "redeem",
         points: -loyaltyPointsUsed,
-        balance: user.loyaltyPoints,
+        balance: remainingAfterRedeem,
         description: `Redeemed for order ${orderNumber}`,
         order: order._id,
       });
     }
 
-    // Earn loyalty points (multiplied by user's tier)
-    const pointsEarned = Math.floor(total * LOYALTY_RATE * loyaltyMultiplier(user.loyaltyPoints));
+    // Earn loyalty points — use atomic increment so stale in-memory balance doesn't corrupt the counter
+    const freshUser = await User.findById(req.user._id);
+    const pointsEarned = Math.floor(total * LOYALTY_RATE * loyaltyMultiplier(freshUser.loyaltyPoints));
     if (pointsEarned > 0) {
-      user.loyaltyPoints += pointsEarned;
-      await user.save({ validateBeforeSave: false });
+      const earnedUser = await User.findByIdAndUpdate(
+        req.user._id,
+        { $inc: { loyaltyPoints: pointsEarned } },
+        { new: true }
+      );
       await LoyaltyTransaction.create({
         user: req.user._id,
         type: "earn",
         points: pointsEarned,
-        balance: user.loyaltyPoints,
+        balance: earnedUser.loyaltyPoints,
         description: `Earned from order ${orderNumber}`,
         order: order._id,
       });

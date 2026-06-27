@@ -14,6 +14,7 @@ describe("Orders API", () => {
   let adminToken;
   let customerId;
   let testMedicineId;
+  let outOfStockMedicineId;
   let testCategoryId;
   let createdOrderId;
   let cancellableOrderId;
@@ -56,11 +57,24 @@ describe("Orders API", () => {
       isActive: true,
     });
     testMedicineId = med._id;
+
+    // Create a 0-stock medicine for the out-of-stock test
+    const outMed = await Medicine.create({
+      name: `Out Of Stock Med ${suffix}`,
+      slug: `out-of-stock-med-${suffix}`,
+      price: 10,
+      finalPrice: 10,
+      stock: 0,
+      category: testCategoryId,
+      requiresPrescription: false,
+      isActive: true,
+    });
+    outOfStockMedicineId = outMed._id;
   });
 
   afterAll(async () => {
     await User.deleteMany({ email: /pharmacy-test\.com$/ });
-    await Medicine.deleteMany({ name: /Test Medicine/ });
+    await Medicine.deleteMany({ name: /Test Medicine|Out Of Stock Med/ });
     await Category.deleteMany({ name: /TestCat_/ });
     await Order.deleteMany({ user: customerId });
   });
@@ -101,7 +115,7 @@ describe("Orders API", () => {
         .post("/api/orders")
         .set("Authorization", `Bearer ${customerToken}`)
         .send({
-          items: [{ medicine: testMedicineId, quantity: 9999 }],
+          items: [{ medicine: outOfStockMedicineId, quantity: 1 }],
           shippingAddress: {
             fullName: "Test User",
             phone: "0501234567",

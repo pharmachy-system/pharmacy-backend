@@ -125,7 +125,7 @@ exports.getMyReturns = async (req, res, next) => {
     const skip  = (page - 1) * limit;
 
     const filter = { user: req.user._id };
-    if (req.query.status) filter.status = req.query.status;
+    if (typeof req.query.status === "string") filter.status = req.query.status;
 
     const [returns, total] = await Promise.all([
       Return.find(filter)
@@ -171,13 +171,13 @@ exports.getAllReturns = async (req, res, next) => {
     const skip  = (page - 1) * limit;
 
     const filter = {};
-    if (req.query.status)   filter.status   = req.query.status;
-    if (req.query.userId)   filter.user     = req.query.userId;
-    if (req.query.returnType) filter.returnType = req.query.returnType;
+    if (typeof req.query.status     === "string") filter.status     = req.query.status;
+    if (typeof req.query.userId     === "string") filter.user       = req.query.userId;
+    if (typeof req.query.returnType === "string") filter.returnType = req.query.returnType;
     if (req.query.startDate || req.query.endDate) {
       filter.createdAt = {};
-      if (req.query.startDate) filter.createdAt.$gte = new Date(req.query.startDate);
-      if (req.query.endDate)   filter.createdAt.$lte = new Date(req.query.endDate);
+      if (typeof req.query.startDate === "string") filter.createdAt.$gte = new Date(req.query.startDate);
+      if (typeof req.query.endDate   === "string") filter.createdAt.$lte = new Date(req.query.endDate);
     }
 
     const [returns, total] = await Promise.all([

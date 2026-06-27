@@ -75,12 +75,12 @@ exports.register = async (req, res, next) => {
 
     const userData = { name, email, password, phone };
 
-    const restrictedRoles = ["admin", "delivery"];
-    if (role && !restrictedRoles.includes(role)) {
-      userData.role = role;
-    } else if (role && restrictedRoles.includes(role) && req.body.adminSecret === process.env.ADMIN_REGISTRATION_SECRET) {
+    const restrictedRoles = ["admin", "pharmacist", "delivery"];
+    if (role && restrictedRoles.includes(role) && req.body.adminSecret === process.env.ADMIN_REGISTRATION_SECRET) {
       userData.role = role;
     }
+    // Any role not in restrictedRoles (i.e. "customer") is set via the model default.
+    // Unrecognized role strings are silently ignored — the model enum will reject them.
 
     if (referralCode) {
       const referrer = await User.findOne({ referralCode: referralCode.toUpperCase() });
@@ -163,7 +163,7 @@ exports.refreshToken = async (req, res, next) => {
 
     let decoded;
     try {
-      decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
+      decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET, { algorithms: ["HS256"] });
     } catch {
       return res.status(403).json({ success: false, message: "Refresh token expired or invalid" });
     }

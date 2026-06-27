@@ -167,8 +167,8 @@ exports.getPaymentHistory = async (req, res, next) => {
     const skip  = (page - 1) * limit;
 
     const filter = { user: req.user._id };
-    if (req.query.status) filter.status = req.query.status;
-    if (req.query.method) filter.method = req.query.method;
+    if (typeof req.query.status === "string") filter.status = req.query.status;
+    if (typeof req.query.method === "string") filter.method = req.query.method;
 
     const [payments, total] = await Promise.all([
       Payment.find(filter)
@@ -284,13 +284,13 @@ exports.adminGetAllPayments = async (req, res, next) => {
     const skip   = (page - 1) * limit;
 
     const filter = {};
-    if (req.query.status) filter.status = req.query.status;
-    if (req.query.method) filter.method = req.query.method;
-    if (req.query.userId) filter.user   = req.query.userId;
+    if (typeof req.query.status === "string") filter.status = req.query.status;
+    if (typeof req.query.method === "string") filter.method = req.query.method;
+    if (typeof req.query.userId === "string") filter.user   = req.query.userId;
     if (req.query.startDate || req.query.endDate) {
       filter.createdAt = {};
-      if (req.query.startDate) filter.createdAt.$gte = new Date(req.query.startDate);
-      if (req.query.endDate)   filter.createdAt.$lte = new Date(req.query.endDate);
+      if (typeof req.query.startDate === "string") filter.createdAt.$gte = new Date(req.query.startDate);
+      if (typeof req.query.endDate   === "string") filter.createdAt.$lte = new Date(req.query.endDate);
     }
 
     const [payments, total] = await Promise.all([

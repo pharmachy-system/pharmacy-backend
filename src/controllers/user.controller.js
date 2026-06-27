@@ -195,9 +195,9 @@ exports.getAllUsers = async (req, res, next) => {
     const skip  = (page - 1) * limit;
 
     const filter = {};
-    if (req.query.role) filter.role = req.query.role;
+    if (typeof req.query.role === "string") filter.role = req.query.role;
     if (req.query.isActive !== undefined) filter.isActive = req.query.isActive === "true";
-    if (req.query.search) {
+    if (typeof req.query.search === "string" && req.query.search) {
       const escaped = req.query.search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       filter.$or = [
         { name: { $regex: escaped, $options: "i" } },

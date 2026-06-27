@@ -104,6 +104,33 @@ exports.getStockMovement = async (req, res, next) => {
   }
 };
 
+// ─── Bulk Activate / Deactivate ───────────────────────────────────────────────
+exports.bulkUpdateStatus = async (req, res, next) => {
+  try {
+    const { medicineIds, isActive } = req.body;
+    if (!Array.isArray(medicineIds) || medicineIds.length === 0) {
+      return res.status(400).json({ success: false, message: "Provide at least one medicine ID | يجب تحديد دواء واحد على الأقل" });
+    }
+    if (typeof isActive !== "boolean") {
+      return res.status(400).json({ success: false, message: "isActive must be a boolean | يجب أن يكون isActive قيمة منطقية" });
+    }
+
+    const result = await Medicine.updateMany(
+      { _id: { $in: medicineIds } },
+      { $set: { isActive } }
+    );
+
+    res.json({
+      success: true,
+      matched: result.matchedCount,
+      updated: result.modifiedCount,
+      action:  isActive ? "activated" : "deactivated",
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 // ─── Bulk Update Stock ────────────────────────────────────────────────────────
 exports.bulkUpdateStock = async (req, res, next) => {
   try {

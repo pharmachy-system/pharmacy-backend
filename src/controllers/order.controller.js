@@ -11,7 +11,14 @@ const { createNotification } = require("../utils/notification.util");
 const { sendOrderConfirmationEmail, sendOrderStatusEmail } = require("../utils/email.util");
 const Wallet = require("../models/Wallet.model");
 
-const LOYALTY_RATE = 1; // 1 point per SAR spent
+const LOYALTY_RATE = 1; // 1 point per SAR spent (Bronze baseline)
+
+// Tier multiplier — keep in sync with user.controller loyaltyTier()
+function loyaltyMultiplier(points) {
+  if (points >= 2000) return 2.0; // Gold
+  if (points >= 500)  return 1.5; // Silver
+  return 1.0;                     // Bronze
+}
 
 // ─── Get All Orders (admin/pharmacist) ───────────────────────────────────────
 exports.getAllOrders = async (req, res, next) => {
@@ -291,8 +298,8 @@ exports.createOrder = async (req, res, next) => {
       });
     }
 
-    // Earn loyalty points
-    const pointsEarned = Math.floor(total * LOYALTY_RATE);
+    // Earn loyalty points (multiplied by user's tier)
+    const pointsEarned = Math.floor(total * LOYALTY_RATE * loyaltyMultiplier(user.loyaltyPoints));
     if (pointsEarned > 0) {
       user.loyaltyPoints += pointsEarned;
       await user.save({ validateBeforeSave: false });

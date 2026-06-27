@@ -1,5 +1,6 @@
 const Medicine = require("../models/Medicine.model");
 const { uploadToCloudinary, deleteFromCloudinary } = require("../utils/cloudinary.util");
+const User = require("../models/User.model");
 
 // ─── List Medicines ───────────────────────────────────────────────────────────
 exports.getAllMedicines = async (req, res, next) => {
@@ -70,7 +71,21 @@ exports.getMedicineById = async (req, res, next) => {
       .populate("relatedMedicines", "name finalPrice images stock");
 
     if (!medicine) return res.status(404).json({ success: false, message: "Medicine not found" });
-    Medicine.findByIdAndUpdate(medicine._id, { $inc: { viewCount: 1 } }).exec();
+
+    // Non-blocking: increment view count + track recently viewed for authenticated users
+    setImmediate(() => {
+      Medicine.findByIdAndUpdate(medicine._id, { $inc: { viewCount: 1 } }).exec().catch(() => {});
+      if (req.user?._id) {
+        User.findByIdAndUpdate(req.user._id, {
+          $pull: { recentlyViewed: { medicine: medicine._id } },
+        }).exec().catch(() => {}).then(() => {
+          User.findByIdAndUpdate(req.user._id, {
+            $push: { recentlyViewed: { $each: [{ medicine: medicine._id, viewedAt: new Date() }], $position: 0, $slice: 20 } },
+          }).exec().catch(() => {});
+        });
+      }
+    });
+
     res.json({ success: true, medicine });
   } catch (err) {
     next(err);
@@ -86,7 +101,20 @@ exports.getMedicineBySlug = async (req, res, next) => {
       .populate("relatedMedicines", "name finalPrice images stock");
 
     if (!medicine) return res.status(404).json({ success: false, message: "Medicine not found" });
-    Medicine.findByIdAndUpdate(medicine._id, { $inc: { viewCount: 1 } }).exec();
+
+    setImmediate(() => {
+      Medicine.findByIdAndUpdate(medicine._id, { $inc: { viewCount: 1 } }).exec().catch(() => {});
+      if (req.user?._id) {
+        User.findByIdAndUpdate(req.user._id, {
+          $pull: { recentlyViewed: { medicine: medicine._id } },
+        }).exec().catch(() => {}).then(() => {
+          User.findByIdAndUpdate(req.user._id, {
+            $push: { recentlyViewed: { $each: [{ medicine: medicine._id, viewedAt: new Date() }], $position: 0, $slice: 20 } },
+          }).exec().catch(() => {});
+        });
+      }
+    });
+
     res.json({ success: true, medicine });
   } catch (err) {
     next(err);
@@ -405,6 +433,60 @@ exports.updateAlternatives = async (req, res, next) => {
     await medicine.populate("alternatives", "name nameAr slug finalPrice stock");
 
     res.json({ success: true, alternatives: medicine.alternatives });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─── Recommendations ──────────────────────────────────────────────────────────
+// Returns medicines in the same category, ranked by popularity.
+// Excludes the source medicine. Intentionally simple — can be upgraded to
+// collaborative-filtering or vector similarity without changing the route contract.
+exports.getRecommendations = async (req, res, next) => {
+  try {
+    const medicine = await Medicine.findOne({ _id: req.params.id, isActive: true }).select("category brand tags");
+    if (!medicine) return res.status(404).json({ success: false, message: "Medicine not found | الدواء غير موجود" });
+
+    const recommendations = await Medicine.find({
+      _id: { $ne: medicine._id },
+      isActive: true,
+      stock: { $gt: 0 },
+      category: medicine.category,
+    })
+      .sort({ soldCount: -1, rating: -1 })
+      .limit(8)
+      .select("name nameAr slug images finalPrice price discount stock requiresPrescription rating reviewCount dosageForm")
+      .populate("brand", "name logo")
+      .lean();
+
+    res.json({ success: true, recommendations, basedOn: "category" });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─── Autocomplete / Suggest ───────────────────────────────────────────────────
+// Lightweight prefix-match for search bars. Returns names only — intentionally
+// minimal to keep response fast and payload small.
+exports.searchSuggest = async (req, res, next) => {
+  try {
+    const q = (req.query.q || "").trim();
+    if (q.length < 2) return res.json({ success: true, suggestions: [] });
+
+    const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const suggestions = await Medicine.find({
+      isActive: true,
+      $or: [
+        { name:   { $regex: `^${escaped}`, $options: "i" } },
+        { nameAr: { $regex: `^${escaped}`, $options: "i" } },
+      ],
+    })
+      .sort({ soldCount: -1 })
+      .limit(10)
+      .select("name nameAr slug finalPrice images requiresPrescription")
+      .lean();
+
+    res.json({ success: true, query: q, suggestions });
   } catch (err) {
     next(err);
   }

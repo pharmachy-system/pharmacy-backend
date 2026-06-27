@@ -3,6 +3,13 @@ const Wallet  = require("../models/Wallet.model");
 const Session = require("../models/Session.model");
 const { uploadToCloudinary, deleteFromCloudinary } = require("../utils/cloudinary.util");
 
+// ─── Loyalty tier helper ──────────────────────────────────────────────────────
+function loyaltyTier(points) {
+  if (points >= 2000) return { tier: "gold",   label: "ذهبي | Gold",   multiplier: 2.0, nextTier: null,    pointsToNext: 0 };
+  if (points >= 500)  return { tier: "silver", label: "فضي | Silver", multiplier: 1.5, nextTier: "gold",   pointsToNext: 2000 - points };
+  return               { tier: "bronze", label: "برونزي | Bronze", multiplier: 1.0, nextTier: "silver", pointsToNext: 500  - points };
+}
+
 // ─── Get Profile ──────────────────────────────────────────────────────────────
 exports.getProfile = async (req, res, next) => {
   try {
@@ -10,7 +17,12 @@ exports.getProfile = async (req, res, next) => {
       User.findById(req.user._id),
       Wallet.findOne({ user: req.user._id }).select("balance"),
     ]);
-    res.json({ success: true, user, walletBalance: wallet?.balance ?? 0 });
+    res.json({
+      success: true,
+      user,
+      walletBalance: wallet?.balance ?? 0,
+      loyalty: loyaltyTier(user?.loyaltyPoints ?? 0),
+    });
   } catch (err) {
     next(err);
   }
@@ -303,6 +315,27 @@ exports.updateFcmToken = async (req, res, next) => {
   }
 };
 
+// ─── Recently Viewed ──────────────────────────────────────────────────────────
+exports.getRecentlyViewed = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user._id)
+      .select("recentlyViewed")
+      .populate({
+        path: "recentlyViewed.medicine",
+        select: "name nameAr slug images finalPrice stock requiresPrescription rating isActive",
+        match: { isActive: true },
+      });
+
+    const viewed = (user.recentlyViewed || [])
+      .filter((rv) => rv.medicine) // filter out deleted medicines
+      .slice(0, 20);
+
+    res.json({ success: true, recentlyViewed: viewed });
+  } catch (err) {
+    next(err);
+  }
+};
+
 // ─── Loyalty Points ───────────────────────────────────────────────────────────
 exports.getLoyaltyPoints = async (req, res, next) => {
   try {
@@ -321,6 +354,7 @@ exports.getLoyaltyPoints = async (req, res, next) => {
     res.json({
       success: true,
       balance: user.loyaltyPoints,
+      loyalty: loyaltyTier(user.loyaltyPoints),
       transactions,
       pagination: { page, limit, total, pages: Math.ceil(total / limit) },
     });

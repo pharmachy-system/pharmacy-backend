@@ -9,8 +9,9 @@ const { upload } = require("../utils/cloudinary.util");
 const { strictLimiter } = require("../middlewares/rateLimiter");
 const { joiValidate } = require("../middlewares/joiValidate.middleware");
 const { schemas } = require("../validators/joi.validators");
+const { cache } = require("../middlewares/cache.middleware");
 
-router.get("/", getAllBrands);
+router.get("/", cache(300), getAllBrands);
 router.get("/:id", getBrandById);
 router.post("/", protect, strictLimiter, authorize("admin"), upload.single("logo"), joiValidate(schemas.brand.create), createBrand);
 router.put("/:id", protect, strictLimiter, authorize("admin"), upload.single("logo"), joiValidate(schemas.brand.update), updateBrand);

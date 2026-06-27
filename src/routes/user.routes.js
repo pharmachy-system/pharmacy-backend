@@ -4,7 +4,7 @@ const {
   getProfile, updateProfile, uploadAvatar, changePassword,
   getAddresses, addAddress, updateAddress, deleteAddress, setDefaultAddress,
   getAllUsers, getUserById, updateUserStatus, updateUserRole, getLoyaltyPoints,
-  deleteUser, adminResetUserPassword, updateFcmToken,
+  deleteUser, adminResetUserPassword, updateFcmToken, getRecentlyViewed,
 } = require("../controllers/user.controller");
 const { protect } = require("../middlewares/auth.middleware");
 const authorize = require("../middlewares/role.middleware");
@@ -18,7 +18,8 @@ router.get("/me", protect, getProfile);
 router.put("/me", protect, joiValidate(schemas.user.updateProfile), updateProfile);
 router.post("/me/avatar", protect, upload.single("avatar"), uploadAvatar);
 router.put("/me/change-password", protect, changePassword);
-router.get("/me/loyalty", protect, getLoyaltyPoints);
+router.get("/me/loyalty",          protect, getLoyaltyPoints);
+router.get("/me/recently-viewed",  protect, getRecentlyViewed);
 router.patch("/me/fcm-token", protect, joiValidate(schemas.user.updateFcmToken), updateFcmToken);
 
 // ── Addresses ─────────────────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const {
-  getAllCategories, getCategoryById, createCategory, updateCategory, deleteCategory,
+  getAllCategories, getCategoryById, createCategory, updateCategory, deleteCategory, getCategoryTree,
 } = require("../controllers/category.controller");
 const { protect } = require("../middlewares/auth.middleware");
 const authorize = require("../middlewares/role.middleware");
@@ -9,8 +9,10 @@ const { upload } = require("../utils/cloudinary.util");
 const { joiValidate } = require("../middlewares/joiValidate.middleware");
 const { schemas } = require("../validators/joi.validators");
 const { strictLimiter } = require("../middlewares/rateLimiter");
+const { cache } = require("../middlewares/cache.middleware");
 
-router.get("/", getAllCategories);
+router.get("/",     cache(300), getAllCategories);
+router.get("/tree", cache(300), getCategoryTree);
 router.get("/:id", getCategoryById);
 router.post("/", protect, strictLimiter, authorize("admin"), upload.single("image"), joiValidate(schemas.category.create), createCategory);
 router.put("/:id", protect, strictLimiter, authorize("admin"), upload.single("image"), joiValidate(schemas.category.update), updateCategory);

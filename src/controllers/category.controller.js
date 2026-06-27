@@ -1,5 +1,6 @@
 const Category = require("../models/Category.model");
 const { uploadToCloudinary, deleteFromCloudinary } = require("../utils/cloudinary.util");
+const Medicine = require("../models/Medicine.model");
 
 exports.getAllCategories = async (req, res, next) => {
   try {
@@ -76,6 +77,48 @@ exports.deleteCategory = async (req, res, next) => {
     const category = await Category.findByIdAndUpdate(req.params.id, { isActive: false }, { new: true });
     if (!category) return res.status(404).json({ success: false, message: "Category not found" });
     res.json({ success: true, message: "Category deactivated" });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─── Category Tree ────────────────────────────────────────────────────────────
+// Returns all active categories as a nested tree with medicine counts.
+// Useful for sidebar navigation and category picker UIs.
+exports.getCategoryTree = async (req, res, next) => {
+  try {
+    const [categories, medicineCounts] = await Promise.all([
+      Category.find({ isActive: true })
+        .sort({ order: 1, name: 1 })
+        .select("name nameAr slug image parent isFeatured order")
+        .lean(),
+      Medicine.aggregate([
+        { $match: { isActive: true } },
+        { $group: { _id: "$category", count: { $sum: 1 } } },
+      ]),
+    ]);
+
+    const countMap = Object.fromEntries(medicineCounts.map((c) => [c._id.toString(), c.count]));
+
+    const catMap = {};
+    const roots  = [];
+
+    for (const cat of categories) {
+      catMap[cat._id.toString()] = { ...cat, medicineCount: countMap[cat._id.toString()] || 0, children: [] };
+    }
+
+    for (const cat of Object.values(catMap)) {
+      if (cat.parent) {
+        const parentId = cat.parent.toString();
+        if (catMap[parentId]) catMap[parentId].children.push(cat);
+        // orphaned (parent deactivated) — include at root
+        else roots.push(cat);
+      } else {
+        roots.push(cat);
+      }
+    }
+
+    res.json({ success: true, tree: roots });
   } catch (err) {
     next(err);
   }

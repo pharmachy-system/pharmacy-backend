@@ -54,4 +54,22 @@ const protect = async (req, res, next) => {
   next();
 };
 
-module.exports = { protect };
+// Like protect but never rejects — sets req.user if a valid token is present,
+// otherwise just calls next() without error. Used for endpoints that are public
+// but can enrich the response when authenticated (e.g. recently-viewed tracking).
+const optionalProtect = async (req, _res, next) => {
+  try {
+    let token;
+    if (req.headers.authorization?.startsWith("Bearer ")) {
+      token = req.headers.authorization.split(" ")[1];
+    }
+    if (!token) return next();
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.id);
+    if (user && user.isActive) req.user = user;
+  } catch (_) { /* invalid token — silently ignore */ }
+  next();
+};
+
+module.exports = { protect, optionalProtect };

@@ -83,6 +83,13 @@ const userSchema = new mongoose.Schema({
     lastSeen:       { type: Date, default: Date.now },
     _id: false,
   }],
+
+  // ── Recently viewed (capped at 20 items, newest first) ────────────────────
+  recentlyViewed: [{
+    medicine: { type: mongoose.Schema.Types.ObjectId, ref: "Medicine" },
+    viewedAt: { type: Date, default: Date.now },
+    _id: false,
+  }],
 }, { timestamps: true });
 
 userSchema.index({ phone: 1 }, { sparse: true });

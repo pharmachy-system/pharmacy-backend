@@ -21,8 +21,9 @@ const { initSentry } = require('./config/sentry.config');
 const app = express();
 
 // Attach a unique request ID to every request for log correlation
-app.use((req, _res, next) => {
+app.use((req, res, next) => {
   req.id = crypto.randomUUID();
+  res.setHeader("X-Request-ID", req.id);
   next();
 });
 

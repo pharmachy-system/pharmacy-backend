@@ -1,5 +1,5 @@
 const config    = require("./src/config/env");
-const logger    = require("./src/utils/logger");
+const logger    = require("./src/config/logger.config");
 const app       = require("./src/app");
 const connectDB = require("./src/config/db");
 const { startJobs, stopJobs } = require("./src/jobs");

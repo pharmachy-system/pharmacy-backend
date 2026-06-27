@@ -1,93 +1,77 @@
 /**
  * Central route registry.
  *
- * Mounts all route modules onto the Express app.
- * Keeps app.js clean — one call wires everything:
+ * Mounts all route modules onto the Express app via a shared v1 router.
+ * Both /api/* and /api/v1/* are supported for backward compatibility.
  *
  *   require("./routes")(app);
- *
- * URL structure:
- *   /api/auth/**               Authentication (email, phone OTP, Nafath, biometric, PIN, guest)
- *   /api/users/**              User profiles, addresses, loyalty, avatar
- *   /api/medicines/**          Medicine catalogue
- *   /api/categories/**         Product categories
- *   /api/brands/**             Medicine brands
- *   /api/prescriptions/**      Prescription upload and verification
- *   /api/cart/**               Shopping cart
- *   /api/wishlist/**           Saved items
- *   /api/orders/**             Order lifecycle
- *   /api/payments/**           Stripe & wallet payments
- *   /api/coupons/**            Discount codes
- *   /api/medicines/:id/reviews Reviews
- *   /api/reviews/**            Reviews (direct access)
- *   /api/delivery/**           Delivery zones & driver flow
- *   /api/notifications/**      In-app notifications
- *   /api/wallet/**             Wallet balance & transactions
- *   /api/articles/**           Health articles
- *   /api/flash-sales/**        Time-limited sales
- *   /api/referrals/**          Referral codes & rewards
- *   /api/user/devices/**       Multi-device session management
- *   /api/admin/dashboard/**    Admin KPI dashboard
- *   /api/admin/inventory/**    Admin inventory management
- *   /api/app/**                Home screen, app config (public, unauthenticated)
- *   /health                    Health check
  */
 
+const express = require("express");
+
 module.exports = (app) => {
+  const router = express.Router();
+
   // ── App bootstrap (home screen, config) — no auth ───────────────────────────
-  app.use("/api/app",         require("./app.routes"));
+  router.use("/app",          require("./app.routes"));
 
   // ── Auth & identity ─────────────────────────────────────────────────────────
-  app.use("/api/auth",        require("./auth.routes"));
-  app.use("/api/user/devices",require("./device.routes"));
+  router.use("/auth",         require("./auth.routes"));
+  router.use("/user/devices", require("./device.routes"));
 
   // ── User & profile ───────────────────────────────────────────────────────────
-  app.use("/api/users",       require("./user.routes"));
+  router.use("/users",        require("./user.routes"));
 
   // ── Catalogue ────────────────────────────────────────────────────────────────
-  app.use("/api/medicines",   require("./medicine.routes"));
-  app.use("/api/categories",  require("./category.routes"));
-  app.use("/api/brands",      require("./brand.routes"));
+  router.use("/medicines",    require("./medicine.routes"));
+  router.use("/categories",   require("./category.routes"));
+  router.use("/brands",       require("./brand.routes"));
 
   // ── Shopping ─────────────────────────────────────────────────────────────────
-  app.use("/api/cart",        require("./cart.routes"));
-  app.use("/api/wishlist",    require("./wishlist.routes"));
-  app.use("/api/coupons",     require("./coupon.routes"));
+  router.use("/cart",         require("./cart.routes"));
+  router.use("/wishlist",     require("./wishlist.routes"));
+  router.use("/coupons",      require("./coupon.routes"));
 
   // ── Orders & payments ────────────────────────────────────────────────────────
-  app.use("/api/orders",      require("./order.routes"));
-  app.use("/api/payments",    require("./payment.routes"));
-  app.use("/api/returns",     require("./return.routes"));
-  app.use("/api/wallet",      require("./wallet.routes"));
+  router.use("/orders",       require("./order.routes"));
+  router.use("/payments",     require("./payment.routes"));
+  router.use("/returns",      require("./return.routes"));
+  router.use("/wallet",       require("./wallet.routes"));
 
   // ── Medical ──────────────────────────────────────────────────────────────────
-  app.use("/api/prescriptions", require("./prescription.routes"));
+  router.use("/prescriptions", require("./prescription.routes"));
 
   // ── Reviews (nested + direct) ────────────────────────────────────────────────
-  app.use("/api/medicines/:medicineId/reviews", require("./review.routes"));
-  app.use("/api/reviews",     require("./review.routes"));
+  router.use("/medicines/:medicineId/reviews", require("./review.routes"));
+  router.use("/reviews",      require("./review.routes"));
 
   // ── Delivery ─────────────────────────────────────────────────────────────────
-  app.use("/api/delivery",    require("./delivery.routes"));
+  router.use("/delivery",     require("./delivery.routes"));
 
   // ── Engagement ───────────────────────────────────────────────────────────────
-  app.use("/api/notifications", require("./notification.routes"));
-  app.use("/api/articles",    require("./article.routes"));
-  app.use("/api/flash-sales", require("./flashsale.routes"));
-  app.use("/api/referrals",   require("./referral.routes"));
+  router.use("/notifications", require("./notification.routes"));
+  router.use("/articles",     require("./article.routes"));
+  router.use("/flash-sales",  require("./flashsale.routes"));
+  router.use("/referrals",    require("./referral.routes"));
 
-  // ── Reports ───────────────────────────────────────────────────────────────────
-  app.use("/api/reports",          require("./report.routes"));
+  // ── Reports ──────────────────────────────────────────────────────────────────
+  router.use("/reports",      require("./report.routes"));
 
-  // ── Admin ─────────────────────────────────────────────────────────────────────
-  app.use("/api/admin/dashboard",  require("./admin/dashboard.routes"));
-  app.use("/api/admin/inventory",  require("./admin/inventory.routes"));
+  // ── Admin ────────────────────────────────────────────────────────────────────
+  router.use("/admin/dashboard",  require("./admin/dashboard.routes"));
+  router.use("/admin/inventory",  require("./admin/inventory.routes"));
+  router.use("/admin/audit",      require("./admin/audit.routes"));
 
-  // ── System ────────────────────────────────────────────────────────────────────
+  // ── Mount at both /api (legacy) and /api/v1 (versioned) ──────────────────────
+  app.use("/api",    router);
+  app.use("/api/v1", router);
+
+  // ── System — stays at /health (not versioned) ─────────────────────────────────
   app.get("/health", (req, res) =>
     res.json({
       success:     true,
       status:      "ok",
+      version:     "v1",
       environment: process.env.NODE_ENV,
       timestamp:   new Date().toISOString(),
     })

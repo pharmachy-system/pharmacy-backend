@@ -495,7 +495,7 @@ const prescription = {
 // ─── Coupon ───────────────────────────────────────────────────────────────────
 const coupon = {
   create: Joi.object({
-    code:             Joi.string().trim().uppercase().alphanum().min(4).max(20).required().messages({ "any.required": m("Coupon code is required", "كود الخصم مطلوب") }),
+    code:             Joi.string().trim().uppercase().pattern(/^[A-Z0-9_-]+$/).min(4).max(20).required().messages({ "any.required": m("Coupon code is required", "كود الخصم مطلوب"), "string.pattern.base": m("Coupon code may only contain letters, numbers, hyphens, and underscores", "كود الخصم يجب أن يحتوي على حروف وأرقام فقط") }),
     type:             Joi.string().valid("percentage", "fixed").required().messages({ "any.required": m("Discount type is required", "نوع الخصم مطلوب") }),
     value:            Joi.number().positive().required().messages({ "any.required": m("Discount value is required", "قيمة الخصم مطلوبة") }),
     description:      Joi.string().max(500).optional(),
@@ -503,13 +503,25 @@ const coupon = {
     maxDiscount:      Joi.number().positive().optional(),
     usageLimit:       Joi.number().integer().positive().optional(),
     perUserLimit:     Joi.number().integer().positive().default(1),
-    validFrom:        Joi.date().default(() => new Date()),
-    validUntil:       Joi.date().greater(Joi.ref("validFrom")).required().messages({
-      "any.required": m("Expiry date is required", "تاريخ انتهاء الصلاحية مطلوب"),
-      "date.greater": m("Expiry date must be after start date", "تاريخ الانتهاء يجب أن يكون بعد تاريخ البدء"),
-    }),
+    validFrom:        Joi.date().optional(),
+    validUntil:       Joi.date().required().messages({ "any.required": m("Expiry date is required", "تاريخ انتهاء الصلاحية مطلوب") }),
     isActive:         Joi.boolean().default(true),
     isFirstOrderOnly: Joi.boolean().default(false),
+  }),
+
+  update: Joi.object({
+    code:             Joi.string().trim().uppercase().pattern(/^[A-Z0-9_-]+$/).min(4).max(20).optional(),
+    type:             Joi.string().valid("percentage", "fixed").optional(),
+    value:            Joi.number().positive().optional(),
+    description:      Joi.string().max(500).optional(),
+    minOrderAmount:   Joi.number().min(0).optional(),
+    maxDiscount:      Joi.number().positive().optional(),
+    usageLimit:       Joi.number().integer().positive().optional(),
+    perUserLimit:     Joi.number().integer().positive().optional(),
+    validFrom:        Joi.date().optional(),
+    validUntil:       Joi.date().optional(),
+    isActive:         Joi.boolean().optional(),
+    isFirstOrderOnly: Joi.boolean().optional(),
   }),
 };
 
@@ -640,9 +652,38 @@ const article = {
     content:  Joi.string().min(50).required().messages({ "any.required": m("Content is required", "المحتوى مطلوب") }),
     excerpt:  Joi.string().max(500).optional(),
     category: Joi.string().valid("health_tips", "medicine_info", "nutrition", "wellness", "news").optional(),
-    tags:     Joi.string().max(500).optional(), // comma-separated
+    tags:     Joi.string().max(500).optional(),
     status:   Joi.string().valid("draft", "published").default("draft"),
     featured: Joi.boolean().default(false),
+  }),
+
+  update: Joi.object({
+    title:    Joi.string().trim().min(5).max(200).optional(),
+    content:  Joi.string().min(50).optional(),
+    excerpt:  Joi.string().max(500).optional(),
+    category: Joi.string().valid("health_tips", "medicine_info", "nutrition", "wellness", "news").optional(),
+    tags:     Joi.string().max(500).optional(),
+    status:   Joi.string().valid("draft", "published").optional(),
+    featured: Joi.boolean().optional(),
+  }),
+};
+
+// ─── Brand ────────────────────────────────────────────────────────────────────
+const brand = {
+  create: Joi.object({
+    name:        Joi.string().trim().min(2).max(100).required().messages({ "any.required": m("Brand name is required", "اسم العلامة التجارية مطلوب") }),
+    nameAr:      Joi.string().trim().max(100).optional(),
+    description: Joi.string().max(1000).optional(),
+    country:     Joi.string().max(100).optional(),
+    isActive:    Joi.boolean().default(true),
+  }),
+
+  update: Joi.object({
+    name:        Joi.string().trim().min(2).max(100).optional(),
+    nameAr:      Joi.string().trim().max(100).optional(),
+    description: Joi.string().max(1000).optional(),
+    country:     Joi.string().max(100).optional(),
+    isActive:    Joi.boolean().optional(),
   }),
 };
 
@@ -705,6 +746,7 @@ module.exports = {
     flashSale,
     wallet,
     article,
+    brand,
     returnRequest,
     params,
   },

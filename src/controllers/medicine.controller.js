@@ -254,3 +254,158 @@ exports.checkInteractions = async (req, res, next) => {
     next(err);
   }
 };
+
+// ─── Smart Search (AI-ready) ──────────────────────────────────────────────────
+// Full-text + faceted search with category/brand/price aggregation in one call.
+// This endpoint is intentionally hook-ready: the `query` field can be forwarded
+// to an embedding/vector search service before falling back to MongoDB $text.
+exports.smartSearch = async (req, res, next) => {
+  try {
+    const q     = (req.query.q || "").trim();
+    const page  = Math.max(parseInt(req.query.page) || 1, 1);
+    const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+    const skip  = (page - 1) * limit;
+
+    if (!q) return res.status(400).json({ success: false, message: "Query parameter 'q' is required | معامل البحث 'q' مطلوب" });
+
+    const baseFilter = { isActive: true };
+
+    // Primary: MongoDB full-text search (uses the existing text index on name/nameAr/description/tags)
+    const textFilter = { ...baseFilter, $text: { $search: q } };
+
+    // Fallback: regex on name / nameAr for short/partial queries
+    const escaped      = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regexFilter  = { ...baseFilter, $or: [
+      { name:   { $regex: escaped, $options: "i" } },
+      { nameAr: { $regex: escaped, $options: "i" } },
+      { tags:   { $regex: escaped, $options: "i" } },
+    ]};
+
+    // Apply optional facet filters on top of the search
+    if (req.query.category) { textFilter.category = req.query.category; regexFilter.category = req.query.category; }
+    if (req.query.brand)    { textFilter.brand    = req.query.brand;    regexFilter.brand    = req.query.brand; }
+    if (req.query.minPrice || req.query.maxPrice) {
+      const pf = {};
+      if (req.query.minPrice) pf.$gte = parseFloat(req.query.minPrice);
+      if (req.query.maxPrice) pf.$lte = parseFloat(req.query.maxPrice);
+      textFilter.finalPrice  = pf;
+      regexFilter.finalPrice = pf;
+    }
+    if (req.query.inStock === "true") { textFilter.stock = { $gt: 0 }; regexFilter.stock = { $gt: 0 }; }
+    if (req.query.requiresPrescription !== undefined) {
+      const val = req.query.requiresPrescription === "true";
+      textFilter.requiresPrescription  = val;
+      regexFilter.requiresPrescription = val;
+    }
+
+    const selectFields = "name nameAr slug images category brand finalPrice price salePrice discount stock requiresPrescription dosageForm rating reviewCount isFeatured isFlashSale";
+
+    // Run text search; if no results, fall back to regex
+    let [medicines, total] = await Promise.all([
+      Medicine.find(textFilter)
+        .populate("category", "name slug")
+        .populate("brand", "name logo")
+        .sort({ score: { $meta: "textScore" }, soldCount: -1 })
+        .skip(skip)
+        .limit(limit)
+        .select(selectFields),
+      Medicine.countDocuments(textFilter),
+    ]);
+
+    let usedFallback = false;
+    if (!medicines.length) {
+      usedFallback = true;
+      [medicines, total] = await Promise.all([
+        Medicine.find(regexFilter)
+          .populate("category", "name slug")
+          .populate("brand", "name logo")
+          .sort({ soldCount: -1, rating: -1 })
+          .skip(skip)
+          .limit(limit)
+          .select(selectFields),
+        Medicine.countDocuments(regexFilter),
+      ]);
+    }
+
+    // Facets: category & brand breakdown for the current result set (no pagination)
+    const facetFilter = usedFallback ? regexFilter : textFilter;
+    const [categoryFacets, brandFacets] = await Promise.all([
+      Medicine.aggregate([
+        { $match: facetFilter },
+        { $group: { _id: "$category", count: { $sum: 1 } } },
+        { $lookup: { from: "categories", localField: "_id", foreignField: "_id", as: "cat" } },
+        { $unwind: { path: "$cat", preserveNullAndEmptyArrays: true } },
+        { $project: { _id: 1, name: "$cat.name", count: 1 } },
+        { $sort: { count: -1 } },
+        { $limit: 10 },
+      ]),
+      Medicine.aggregate([
+        { $match: { ...facetFilter, brand: { $ne: null } } },
+        { $group: { _id: "$brand", count: { $sum: 1 } } },
+        { $lookup: { from: "brands", localField: "_id", foreignField: "_id", as: "br" } },
+        { $unwind: { path: "$br", preserveNullAndEmptyArrays: true } },
+        { $project: { _id: 1, name: "$br.name", logo: "$br.logo", count: 1 } },
+        { $sort: { count: -1 } },
+        { $limit: 10 },
+      ]),
+    ]);
+
+    res.json({
+      success: true,
+      query: q,
+      medicines,
+      facets: { categories: categoryFacets, brands: brandFacets },
+      pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+      meta: { usedFallback, resultCount: medicines.length },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─── Get Alternatives ─────────────────────────────────────────────────────────
+exports.getAlternatives = async (req, res, next) => {
+  try {
+    const medicine = await Medicine.findById(req.params.id)
+      .populate("alternatives", "name nameAr slug images finalPrice stock requiresPrescription rating dosageForm category brand")
+      .populate("relatedMedicines", "name nameAr slug images finalPrice stock requiresPrescription rating");
+
+    if (!medicine) return res.status(404).json({ success: false, message: "Medicine not found | الدواء غير موجود" });
+
+    res.json({
+      success: true,
+      medicineId: medicine._id,
+      medicineName: medicine.name,
+      alternatives: medicine.alternatives || [],
+      relatedMedicines: medicine.relatedMedicines || [],
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─── Manage Alternatives (admin) ──────────────────────────────────────────────
+exports.updateAlternatives = async (req, res, next) => {
+  try {
+    const { add = [], remove = [] } = req.body;
+
+    const medicine = await Medicine.findById(req.params.id);
+    if (!medicine) return res.status(404).json({ success: false, message: "Medicine not found | الدواء غير موجود" });
+
+    const current = (medicine.alternatives || []).map((id) => id.toString());
+    const addSet    = add.filter((id) => !current.includes(id) && id !== req.params.id);
+    const removeSet = new Set(remove.map(String));
+
+    medicine.alternatives = [
+      ...current.filter((id) => !removeSet.has(id)),
+      ...addSet,
+    ];
+
+    await medicine.save();
+    await medicine.populate("alternatives", "name nameAr slug finalPrice stock");
+
+    res.json({ success: true, alternatives: medicine.alternatives });
+  } catch (err) {
+    next(err);
+  }
+};

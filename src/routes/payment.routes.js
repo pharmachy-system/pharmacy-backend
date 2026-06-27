@@ -13,8 +13,8 @@ const { protect }       = require("../middlewares/auth.middleware");
 const authorize         = require("../middlewares/role.middleware");
 const { paymentLimiter } = require("../middlewares/rateLimiter");
 
-// Stripe webhook — must receive raw body for signature verification
-router.post("/webhook", express.raw({ type: "application/json" }), stripeWebhook);
+// Stripe webhook — rawBody captured globally via express.json({ verify }) in app.js
+router.post("/webhook", stripeWebhook);
 
 router.use(protect);
 

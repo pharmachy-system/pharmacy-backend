@@ -100,7 +100,7 @@ exports.calculateFee = async (req, res, next) => {
     if (!zone && city) {
       zone = await DeliveryZone.findOne({
         isActive: true,
-        cities:   { $regex: new RegExp(`^${city}$`, "i") },
+        cities:   { $regex: new RegExp(`^${city.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") },
       });
     }
 

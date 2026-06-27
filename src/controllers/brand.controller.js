@@ -5,7 +5,10 @@ exports.getAllBrands = async (req, res, next) => {
   try {
     const filter = { isActive: true };
     if (req.query.featured) filter.isFeatured = true;
-    if (req.query.search) filter.name = { $regex: req.query.search, $options: "i" };
+    if (req.query.search) {
+      const escaped = req.query.search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      filter.name = { $regex: escaped, $options: "i" };
+    }
 
     const page = parseInt(req.query.page) || 1;
     const limit = Math.min(200, parseInt(req.query.limit) || 50);

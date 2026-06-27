@@ -12,9 +12,10 @@ exports.getAllArticles = async (req, res, next) => {
     if (req.query.featured === "true") filter.isFeatured = true;
     if (req.query.tag) filter.tags = req.query.tag;
     if (req.query.search) {
+      const escaped = req.query.search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       filter.$or = [
-        { title: { $regex: req.query.search, $options: "i" } },
-        { excerpt: { $regex: req.query.search, $options: "i" } },
+        { title: { $regex: escaped, $options: "i" } },
+        { excerpt: { $regex: escaped, $options: "i" } },
       ];
     }
 

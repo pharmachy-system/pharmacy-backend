@@ -53,19 +53,51 @@ exports.getSalesReport = async (req, res, next) => {
   }
 };
 
-// GET /api/reports/inventory
+// GET /api/reports/inventory?page=&limit=
 exports.getInventoryReport = async (req, res, next) => {
   try {
-    const medicines = await Medicine.find({ isActive: true }).populate("category", "name");
+    const page  = Math.max(1, parseInt(req.query.page)  || 1);
+    const limit = Math.min(200, parseInt(req.query.limit) || 50);
+    const skip  = (page - 1) * limit;
 
-    const totalItems = medicines.length;
-    const totalValue = medicines.reduce((sum, m) => sum + (m.price || 0) * (m.stock || 0), 0);
-    const lowStockCount = medicines.filter((m) => (m.stock || 0) <= (m.lowStockThreshold || 10)).length;
-    const expiredCount = medicines.filter((m) => m.expiryDate && m.expiryDate < new Date()).length;
+    const now = new Date();
+
+    const [[stats], medicines, total] = await Promise.all([
+      Medicine.aggregate([
+        { $match: { isActive: true } },
+        {
+          $group: {
+            _id:          null,
+            totalItems:   { $sum: 1 },
+            totalValue:   { $sum: { $multiply: ["$price", "$stock"] } },
+            lowStockCount: {
+              $sum: { $cond: [{ $lte: ["$stock", { $ifNull: ["$lowStockThreshold", 10] }] }, 1, 0] },
+            },
+            expiredCount: {
+              $sum: { $cond: [{ $and: [{ $ne: ["$expiryDate", null] }, { $lt: ["$expiryDate", now] }] }, 1, 0] },
+            },
+          },
+        },
+      ]),
+      Medicine.find({ isActive: true })
+        .populate("category", "name")
+        .sort({ stock: 1 })
+        .skip(skip)
+        .limit(limit)
+        .select("name stock price lowStockThreshold expiryDate category"),
+      Medicine.countDocuments({ isActive: true }),
+    ]);
 
     res.json({
       success: true,
-      data: { totalItems, totalValue: parseFloat(totalValue.toFixed(2)), lowStockCount, expiredCount, medicines },
+      data: {
+        totalItems:    stats?.totalItems   ?? 0,
+        totalValue:    parseFloat((stats?.totalValue   ?? 0).toFixed(2)),
+        lowStockCount: stats?.lowStockCount ?? 0,
+        expiredCount:  stats?.expiredCount  ?? 0,
+        medicines,
+      },
+      pagination: { page, limit, total, pages: Math.ceil(total / limit) },
     });
   } catch (err) {
     next(err);
@@ -113,7 +145,7 @@ exports.getRevenueByPeriod = async (req, res, next) => {
 // GET /api/reports/top-medicines?limit=10
 exports.getTopMedicines = async (req, res, next) => {
   try {
-    const limit = parseInt(req.query.limit, 10) || 10;
+    const limit = Math.min(100, parseInt(req.query.limit, 10) || 10);
 
     const topMedicines = await Order.aggregate([
       { $match: { status: { $nin: ["cancelled", "refunded"] } } },

@@ -12,6 +12,8 @@ const flashSaleSchema = new mongoose.Schema({
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
 }, { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } });
 
+flashSaleSchema.index({ isActive: 1, startDate: 1, endDate: 1 });
+
 flashSaleSchema.virtual("isLive").get(function () {
   const now = new Date();
   return this.isActive && now >= this.startDate && now <= this.endDate;

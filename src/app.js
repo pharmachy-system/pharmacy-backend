@@ -53,8 +53,11 @@ app.use(compression());
 // Cookie parser
 app.use(cookieParser());
 
-// Body parsing
-app.use(express.json({ limit: '10mb' }));
+// Body parsing — preserve raw body for Stripe webhook signature verification
+app.use(express.json({
+  limit: '10mb',
+  verify: (req, _res, buf) => { req.rawBody = buf; },
+}));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // NoSQL injection + XSS sanitization (Express 5 compatible — body/params only)

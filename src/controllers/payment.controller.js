@@ -37,16 +37,13 @@ exports.createPaymentIntent = async (req, res, next) => {
       description: `Order ${order.orderNumber}`,
     });
 
-    // Upsert payment record (avoid duplicate if intent was already created)
+    // Upsert payment record — always update intent ID so retries (expired intents) are tracked
     await Payment.findOneAndUpdate(
       { order: order._id, method: "card" },
-      { $setOnInsert: {
-          user:                  req.user._id,
-          method:                "card",
-          amount:                order.total,
-          stripePaymentIntentId: paymentIntent.id,
-          status:                "pending",
-        } },
+      {
+        $set:         { stripePaymentIntentId: paymentIntent.id, status: "pending" },
+        $setOnInsert: { user: req.user._id, method: "card", amount: order.total },
+      },
       { upsert: true, new: true }
     );
 

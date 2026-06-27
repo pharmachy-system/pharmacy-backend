@@ -450,7 +450,8 @@ const cart = {
 // ─── Review ───────────────────────────────────────────────────────────────────
 const review = {
   create: Joi.object({
-    medicine: objectId().required().messages({ "any.required": m("Medicine ID is required", "معرّف الدواء مطلوب") }),
+    medicine: objectId().optional(), // controller reads from req.params.medicineId (nested route)
+    title:    Joi.string().max(200).optional(),
     rating:   Joi.number().integer().min(1).max(5).required().messages({
       "number.min":   m("Rating must be at least 1", "التقييم يجب أن يكون 1 على الأقل"),
       "number.max":   m("Rating must not exceed 5", "التقييم يجب ألا يتجاوز 5"),
@@ -612,6 +613,35 @@ const article = {
   }),
 };
 
+// ─── Returns ─────────────────────────────────────────────────────────────────
+const returnRequest = {
+  create: Joi.object({
+    orderId:      objectId().required().messages({ "any.required": m("Order ID is required", "معرّف الطلب مطلوب") }),
+    items: Joi.array().items(
+      Joi.object({
+        medicineId: objectId().required(),
+        quantity:   Joi.number().integer().min(1).required(),
+        reason:     Joi.string().max(500).optional(),
+      })
+    ).min(1).required().messages({
+      "array.min":    m("At least one item is required", "يجب تحديد عنصر واحد على الأقل"),
+      "any.required": m("Items are required", "العناصر مطلوبة"),
+    }),
+    refundMethod: Joi.string().valid("wallet", "original_payment").default("wallet"),
+  }),
+
+  approve: Joi.object({
+    adminNote: Joi.string().max(500).optional(),
+  }),
+
+  reject: Joi.object({
+    rejectionReason: Joi.string().min(5).max(500).required().messages({
+      "any.required": m("Rejection reason is required", "سبب الرفض مطلوب"),
+    }),
+    adminNote: Joi.string().max(500).optional(),
+  }),
+};
+
 // ─── Params & Query shared validators ────────────────────────────────────────
 const params = {
   id: Joi.object({ id: objectId().required() }),
@@ -642,6 +672,7 @@ module.exports = {
     flashSale,
     wallet,
     article,
+    returnRequest,
     params,
   },
 };

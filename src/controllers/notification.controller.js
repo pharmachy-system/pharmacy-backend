@@ -70,19 +70,31 @@ exports.clearAllNotifications = async (req, res, next) => {
   }
 };
 
-// Admin: send notification to all or specific users
+// Admin: send notification to specified users or broadcast to all active users in batches
 exports.sendNotification = async (req, res, next) => {
   try {
     const { userIds, type, title, body, data, channels } = req.body;
     const { bulkNotify } = require("../utils/notification.util");
+    const BATCH = 500;
 
     if (userIds && userIds.length > 0) {
-      await bulkNotify(userIds, { type, title, body, data, channels });
+      // Send to specified list — chunk to avoid oversized insertMany
+      for (let i = 0; i < userIds.length; i += BATCH) {
+        await bulkNotify(userIds.slice(i, i + BATCH), { type, title, body, data, channels });
+      }
     } else {
-      // Send to all active users
+      // Broadcast to all active users — cursor to avoid loading all into memory
       const User = require("../models/User.model");
-      const users = await User.find({ isActive: true }).select("_id");
-      await bulkNotify(users.map((u) => u._id), { type, title, body, data, channels });
+      const cursor = User.find({ isActive: true }).select("_id").lean().cursor();
+      let batch = [];
+      for await (const user of cursor) {
+        batch.push(user._id);
+        if (batch.length >= BATCH) {
+          await bulkNotify(batch, { type, title, body, data, channels });
+          batch = [];
+        }
+      }
+      if (batch.length) await bulkNotify(batch, { type, title, body, data, channels });
     }
 
     res.json({ success: true, message: "Notification sent" });

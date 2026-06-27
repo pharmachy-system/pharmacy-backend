@@ -28,8 +28,8 @@ app.use((req, _res, next) => {
 // Security headers
 app.use(helmet());
 
-// CORS — supports comma-separated list in CORS_ORIGIN env var
-const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173')
+// CORS — supports comma-separated list; CLIENT_URL is the legacy alias for CORS_ORIGIN
+const allowedOrigins = (process.env.CORS_ORIGIN || process.env.CLIENT_URL || 'http://localhost:5173')
   .split(',')
   .map((o) => o.trim())
   .filter(Boolean);

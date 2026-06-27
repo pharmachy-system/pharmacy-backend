@@ -42,7 +42,11 @@
       "Bash(sed -i '' 's/const limit = parseInt\\(req.query.limit\\) || 10;/const limit = Math.min\\(50, parseInt\\(req.query.limit\\) || 10\\);/g' /Users/AmalAlSari/Desktop/pharmacy-backend-main/src/controllers/review.controller.js)",
       "Bash(sed -i '' 's/const limit = parseInt\\(req.query.limit\\) || 20;/const limit = Math.min\\(100, parseInt\\(req.query.limit\\) || 20\\);/g' /Users/AmalAlSari/Desktop/pharmacy-backend-main/src/controllers/review.controller.js)",
       "Bash(git -C /Users/AmalAlSari/Desktop/pharmacy-backend-main add -A)",
-      "Bash(git -C /Users/AmalAlSari/Desktop/pharmacy-backend-main status)"
+      "Bash(git -C /Users/AmalAlSari/Desktop/pharmacy-backend-main status)",
+      "Bash(git *)",
+      "Bash(grep -n '\\\\$regex.*req\\\\.query\\\\|new RegExp.*req\\\\.' src/controllers/medicine.controller.js)",
+      "Bash(grep -n '\\\\$regex\\\\|new RegExp' src/controllers/medicine.controller.js)",
+      "Bash(grep -v \"^#\\\\|^$\")"
     ],
     "deny": [],
     "ask": []

@@ -16,8 +16,8 @@ router.get("/", authorize("admin", "pharmacist"), getAllOrders);
 router.post("/", authorize("customer", "admin"), joiValidate(schemas.order.create), createOrder);
 router.get("/:id", getOrderById);
 router.get("/:id/track", trackOrder);
-router.put("/:id/status", authorize("admin", "pharmacist"), updateOrderStatus);
-router.put("/:id/cancel", cancelOrder);
+router.put("/:id/status", authorize("admin", "pharmacist"), joiValidate(schemas.order.updateStatus), updateOrderStatus);
+router.put("/:id/cancel", joiValidate(schemas.order.cancel), cancelOrder);
 router.post("/:id/reorder", reorder);
 
 module.exports = router;

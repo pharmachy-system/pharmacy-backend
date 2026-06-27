@@ -246,40 +246,44 @@ exports.logoutAll = async (req, res, next) => {
 
 // ─── Session Validation (app startup check) ──────────────────────────────────
 // Returns { valid, user, needsBiometric, isReturningUser }
-exports.checkSession = async (req, res) => {
-  const { deviceId } = req.query;
-  let needsBiometric = false;
-  let sessionMeta    = {};
+exports.checkSession = async (req, res, next) => {
+  try {
+    const { deviceId } = req.query;
+    let needsBiometric = false;
+    let sessionMeta    = {};
 
-  if (deviceId) {
-    const session = await Session.findOne({ deviceId, user: req.user._id, isActive: true })
-      .select("biometricEnabled pinEnabled language timezone deviceName platform lastUsed expiresAt");
+    if (deviceId) {
+      const session = await Session.findOne({ deviceId, user: req.user._id, isActive: true })
+        .select("biometricEnabled pinEnabled language timezone deviceName platform lastUsed expiresAt");
 
-    if (session) {
-      needsBiometric = !!session.biometricEnabled;
-      sessionMeta = {
-        biometricEnabled: session.biometricEnabled,
-        pinEnabled:       session.pinEnabled,
-        language:         session.language,
-        timezone:         session.timezone,
-        deviceName:       session.deviceName,
-        platform:         session.platform,
-        lastUsed:         session.lastUsed,
-        sessionExpiresAt: session.expiresAt,
-      };
+      if (session) {
+        needsBiometric = !!session.biometricEnabled;
+        sessionMeta = {
+          biometricEnabled: session.biometricEnabled,
+          pinEnabled:       session.pinEnabled,
+          language:         session.language,
+          timezone:         session.timezone,
+          deviceName:       session.deviceName,
+          platform:         session.platform,
+          lastUsed:         session.lastUsed,
+          sessionExpiresAt: session.expiresAt,
+        };
+      }
     }
+
+    const payload = userPayload(req.user);
+
+    res.json({
+      success:         true,
+      valid:           true,
+      user:            payload,
+      needsBiometric,
+      isReturningUser: payload.isReturningUser,
+      session:         sessionMeta,
+    });
+  } catch (err) {
+    next(err);
   }
-
-  const payload = userPayload(req.user);
-
-  res.json({
-    success:         true,
-    valid:           true,
-    user:            payload,
-    needsBiometric,
-    isReturningUser: payload.isReturningUser,
-    session:         sessionMeta,
-  });
 };
 
 // ─── Get Me ───────────────────────────────────────────────────────────────────

@@ -242,9 +242,25 @@ exports.createOrder = async (req, res, next) => {
       await walletDoc.save();
     }
 
-    // Deduct stock
+    // Deduct stock — atomic check+update guards against concurrent oversell
+    const decremented = [];
     for (const item of items) {
-      await Medicine.findByIdAndUpdate(item.medicine, { $inc: { stock: -item.quantity, soldCount: item.quantity } });
+      const updated = await Medicine.findOneAndUpdate(
+        { _id: item.medicine, stock: { $gte: item.quantity } },
+        { $inc: { stock: -item.quantity, soldCount: item.quantity } }
+      );
+      if (!updated) {
+        // Another order beat us — restore already-decremented stock and cancel
+        for (const prev of decremented) {
+          await Medicine.findByIdAndUpdate(prev.medicine, { $inc: { stock: prev.quantity, soldCount: -prev.quantity } });
+        }
+        await Order.findByIdAndUpdate(order._id, { status: "cancelled", cancellationReason: "Stock depleted during checkout" });
+        return res.status(400).json({
+          success: false,
+          message: `${orderItems.find((oi) => oi.medicine.toString() === item.medicine.toString())?.name || item.medicine} is out of stock`,
+        });
+      }
+      decremented.push(item);
     }
 
     // Mark coupon as used

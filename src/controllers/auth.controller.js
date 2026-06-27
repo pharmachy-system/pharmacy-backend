@@ -42,7 +42,7 @@ const userPayload = (user) => ({
 
 // ─── Shared login success handler ─────────────────────────────────────────────
 // Creates tokens, upserts session, increments loginCount, responds.
-const issueTokensAndRespond = async (res, user, deviceInfo, req, { statusCode = 200, rememberDevice = false } = {}) => {
+const issueTokensAndRespond = async (res, user, deviceInfo, req, { statusCode = 200, rememberDevice = false, extras = {} } = {}) => {
   const accessToken  = generateAccessToken(user._id);
   const refreshToken = generateRefreshToken(user._id);
 
@@ -60,6 +60,7 @@ const issueTokensAndRespond = async (res, user, deviceInfo, req, { statusCode = 
     accessToken,
     refreshToken,
     user:         userPayload(user),
+    ...extras,
   });
 };
 
@@ -96,7 +97,8 @@ exports.register = async (req, res, next) => {
     } catch { /* non-blocking */ }
 
     const deviceInfo = extractDeviceInfo(req);
-    return issueTokensAndRespond(res, user, deviceInfo, req, { statusCode: 201 });
+    const extras = process.env.NODE_ENV !== "production" ? { devOtp: otp } : {};
+    return issueTokensAndRespond(res, user, deviceInfo, req, { statusCode: 201, extras });
   } catch (err) {
     next(err);
   }

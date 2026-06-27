@@ -124,7 +124,7 @@ exports.addToCart = async (req, res, next) => {
       session.cart.push({
         medicine: medicine._id,
         quantity,
-        price: medicine.finalPrice,
+        price: medicine.finalPrice ?? medicine.price,
         name:  medicine.name,
         image: medicine.images?.[0]?.url || "",
       });

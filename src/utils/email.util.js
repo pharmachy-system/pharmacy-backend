@@ -33,7 +33,7 @@ const sendEmail = async ({ to, subject, html, text }) => {
     if (process.env.NODE_ENV === "production") {
       throw new Error("Email service not configured — set EMAIL_HOST, EMAIL_USER, EMAIL_PASS");
     }
-    logger.info(`📧 [EMAIL DEV] To: ${to} | Subject: ${subject}`);
+    logger.info(`📧 [EMAIL DEV] To: ${to} | Subject: ${subject}\n${text || ""}`);
     return;
   }
 
@@ -94,6 +94,7 @@ const sendOtpEmail = async (user, otp, purpose, expiresInMinutes = 5) => {
       to:      user.email,
       subject: "رمز التحقق | Verification Code",
       html:    templates.otpEmail({ name: user.name, otp, purpose, expiresInMinutes }),
+      text:    `OTP: ${otp}`,
     });
   } catch (err) {
     logger.error("sendOtpEmail failed:", err.message);

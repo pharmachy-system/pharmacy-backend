@@ -17,7 +17,7 @@ exports.getCart = async (req, res, next) => {
   try {
     const cart = await Cart.findOne({ user: req.user._id }).populate(
       "items.medicine",
-      "name images finalPrice flashSalePrice isFlashSale stock requiresPrescription isActive"
+      "name images price finalPrice flashSalePrice isFlashSale stock requiresPrescription isActive"
     );
 
     if (!cart) return res.json({ success: true, cart: { items: [], subtotal: 0, itemCount: 0 } });
@@ -30,7 +30,7 @@ exports.getCart = async (req, res, next) => {
     const items = activeItems.map((item) => {
       const currentPrice = item.medicine.isFlashSale && item.medicine.flashSalePrice
         ? item.medicine.flashSalePrice
-        : item.medicine.finalPrice;
+        : (item.medicine.finalPrice ?? item.medicine.price);
       subtotal += currentPrice * item.quantity;
       return { ...item.toObject(), price: currentPrice };
     });
@@ -67,7 +67,7 @@ exports.addToCart = async (req, res, next) => {
 
     const activePrice = medicine.isFlashSale && medicine.flashSalePrice
       ? medicine.flashSalePrice
-      : medicine.finalPrice;
+      : (medicine.finalPrice ?? medicine.price);
 
     if (existingItem) {
       const newQty = existingItem.quantity + quantity;
@@ -85,7 +85,7 @@ exports.addToCart = async (req, res, next) => {
     }
 
     await cart.save();
-    await cart.populate("items.medicine", "name images finalPrice flashSalePrice isFlashSale stock requiresPrescription");
+    await cart.populate("items.medicine", "name images price finalPrice flashSalePrice isFlashSale stock requiresPrescription");
     res.json({ success: true, cart });
   } catch (err) {
     next(err);
@@ -112,7 +112,7 @@ exports.updateCartItem = async (req, res, next) => {
     }
 
     await cart.save();
-    await cart.populate("items.medicine", "name images finalPrice flashSalePrice isFlashSale stock requiresPrescription");
+    await cart.populate("items.medicine", "name images price finalPrice flashSalePrice isFlashSale stock requiresPrescription");
     res.json({ success: true, cart });
   } catch (err) {
     next(err);
@@ -153,7 +153,7 @@ exports.clearCart = async (req, res, next) => {
 exports.applyCoupon = async (req, res, next) => {
   try {
     const { code } = req.body;
-    const cart = await Cart.findOne({ user: req.user._id }).populate("items.medicine", "finalPrice");
+    const cart = await Cart.findOne({ user: req.user._id }).populate("items.medicine", "price finalPrice");
     if (!cart || cart.items.length === 0)
       return res.status(400).json({ success: false, message: "Cart is empty" });
 
@@ -166,7 +166,7 @@ exports.applyCoupon = async (req, res, next) => {
     if (userUsageCount >= coupon.perUserLimit)
       return res.status(400).json({ success: false, message: "Coupon usage limit reached" });
 
-    const subtotal = cart.items.reduce((sum, i) => sum + i.medicine.finalPrice * i.quantity, 0);
+    const subtotal = cart.items.reduce((sum, i) => sum + (i.medicine.finalPrice ?? i.medicine.price) * i.quantity, 0);
     if (subtotal < coupon.minOrderAmount)
       return res.status(400).json({
         success: false,
@@ -220,7 +220,7 @@ exports.getCheckoutSummary = async (req, res, next) => {
     const { deliveryZoneId, couponCode, useLoyaltyPoints } = req.body;
 
     const cart = await Cart.findOne({ user: req.user._id }).populate(
-      "items.medicine", "finalPrice flashSalePrice isFlashSale stock isActive requiresPrescription name"
+      "items.medicine", "price finalPrice flashSalePrice isFlashSale stock isActive requiresPrescription name"
     );
 
     if (!cart || cart.items.length === 0) {
@@ -236,7 +236,7 @@ exports.getCheckoutSummary = async (req, res, next) => {
     const items = activeItems.map((item) => {
       const price = item.medicine.isFlashSale && item.medicine.flashSalePrice
         ? item.medicine.flashSalePrice
-        : item.medicine.finalPrice;
+        : (item.medicine.finalPrice ?? item.medicine.price);
       subtotal += price * item.quantity;
       return { name: item.medicine.name, quantity: item.quantity, price, total: price * item.quantity, requiresPrescription: item.medicine.requiresPrescription };
     });
@@ -323,7 +323,7 @@ exports.mergeGuestCart = async (req, res, next) => {
       if (!medicine || medicine.stock < 1) continue;
 
       const existing = userCart.items.find((i) => i.medicine.toString() === guestItem.medicine.toString());
-      const price = medicine.isFlashSale && medicine.flashSalePrice ? medicine.flashSalePrice : medicine.finalPrice;
+      const price = medicine.isFlashSale && medicine.flashSalePrice ? medicine.flashSalePrice : (medicine.finalPrice ?? medicine.price);
 
       if (existing) {
         const newQty = existing.quantity + guestItem.quantity;

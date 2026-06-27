@@ -148,7 +148,7 @@ exports.bulkUpdateStock = async (req, res, next) => {
       else if (operation === "subtract") medicine.stock = Math.max(0, medicine.stock - Number(quantity));
       else medicine.stock = Number(quantity);
 
-      await medicine.save();
+      await medicine.save({ validateModifiedOnly: true });
       results.push({ medicineId, name: medicine.name, newStock: medicine.stock });
     }
 

@@ -178,7 +178,7 @@ exports.updateMedicine = async (req, res, next) => {
     }
 
     Object.assign(medicine, req.body);
-    await medicine.save();
+    await medicine.save({ validateModifiedOnly: true });
     res.json({ success: true, medicine });
   } catch (err) {
     next(err);
@@ -244,7 +244,7 @@ exports.updateStock = async (req, res, next) => {
     } else {
       medicine.stock = Number(quantity);
     }
-    await medicine.save();
+    await medicine.save({ validateModifiedOnly: true });
     res.json({ success: true, medicine });
   } catch (err) {
     next(err);
@@ -443,7 +443,7 @@ exports.updateAlternatives = async (req, res, next) => {
       ...addSet,
     ];
 
-    await medicine.save();
+    await medicine.save({ validateModifiedOnly: true });
     await medicine.populate("alternatives", "name nameAr slug finalPrice stock");
 
     res.json({ success: true, alternatives: medicine.alternatives });

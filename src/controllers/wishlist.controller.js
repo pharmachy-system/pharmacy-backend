@@ -5,7 +5,7 @@ exports.getWishlist = async (req, res, next) => {
   try {
     const wishlist = await Wishlist.findOne({ user: req.user._id }).populate(
       "items.medicine",
-      "name images finalPrice stock requiresPrescription isActive rating"
+      "name images price finalPrice discount stock requiresPrescription isActive rating"
     );
 
     if (!wishlist) return res.json({ success: true, items: [], count: 0 });
@@ -85,7 +85,7 @@ exports.moveToCart = async (req, res, next) => {
     if (existing) {
       existing.quantity += 1;
     } else {
-      cart.items.push({ medicine: medicine._id, quantity: 1, price: medicine.finalPrice, name: medicine.name });
+      cart.items.push({ medicine: medicine._id, quantity: 1, price: medicine.finalPrice ?? medicine.price, name: medicine.name });
     }
     await cart.save();
 

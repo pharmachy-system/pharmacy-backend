@@ -140,7 +140,7 @@ exports.createOrder = async (req, res, next) => {
 
       const unitPrice = medicine.isFlashSale && medicine.flashSalePrice
         ? medicine.flashSalePrice
-        : medicine.finalPrice;
+        : (medicine.finalPrice ?? medicine.price);
 
       orderItems.push({
         medicine: medicine._id,
@@ -644,7 +644,7 @@ exports.reorder = async (req, res, next) => {
           cart.items.push({
             medicine: item.medicine,
             quantity: item.quantity,
-            price: medicine.finalPrice,
+            price: medicine.finalPrice ?? medicine.price,
             name: medicine.name,
           });
         }

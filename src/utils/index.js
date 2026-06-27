@@ -7,9 +7,6 @@
 // Error class
 const AppError       = require("./AppError");
 
-// API query builder
-const APIFeatures    = require("./apiFeatures.util");
-
 // Auth helpers
 const tokenUtil      = require("./token.util");
 const sessionUtil    = require("./session.util");
@@ -29,9 +26,6 @@ const cloudinaryUtil = require("./cloudinary.util");
 module.exports = {
   // Error handling
   AppError,
-
-  // API query builder (filtering, sorting, pagination)
-  APIFeatures,
 
   // Token generation
   generateAccessToken:  tokenUtil.generateAccessToken,

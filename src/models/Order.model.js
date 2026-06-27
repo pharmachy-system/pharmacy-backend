@@ -47,6 +47,8 @@ const orderSchema = new mongoose.Schema({
   notes: { type: String },
   loyaltyPointsEarned: { type: Number, default: 0 },
   loyaltyPointsUsed: { type: Number, default: 0 },
+  vatAmount: { type: Number, default: 0 },
+  invoiceUUID: { type: String },
 }, { timestamps: true });
 
 orderSchema.index({ user: 1, createdAt: -1 });

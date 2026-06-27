@@ -10,6 +10,8 @@ const logger = require("../config/logger.config");
 const { createNotification } = require("../utils/notification.util");
 const { sendOrderConfirmationEmail, sendOrderStatusEmail } = require("../utils/email.util");
 const Wallet = require("../models/Wallet.model");
+const { calcVat, orderPretaxTotal } = require("../utils/zatca.util");
+const crypto = require("crypto");
 
 const LOYALTY_RATE = 1; // 1 point per SAR spent (Bronze baseline)
 
@@ -221,7 +223,7 @@ exports.createOrder = async (req, res, next) => {
     // Generate order number
     const orderNumber = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
-    const order = await Order.create({
+    const orderBase = {
       orderNumber,
       user: req.user._id,
       items: orderItems,
@@ -241,7 +243,10 @@ exports.createOrder = async (req, res, next) => {
       notes,
       loyaltyPointsUsed,
       trackingHistory: [{ status: "pending", note: "Order placed", updatedBy: req.user._id }],
-    });
+      invoiceUUID: crypto.randomUUID(),
+    };
+    orderBase.vatAmount = calcVat(orderPretaxTotal(orderBase));
+    const order = await Order.create(orderBase);
 
     // Deduct wallet balance
     if (walletUsed > 0 && walletDoc) {

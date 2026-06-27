@@ -34,6 +34,7 @@ module.exports = (app) => {
 
   // ── Orders & payments ────────────────────────────────────────────────────────
   router.use("/orders",       require("./order.routes"));
+  router.use("/orders/:id/invoice", require("./invoice.routes"));
   router.use("/payments",     require("./payment.routes"));
   router.use("/returns",      require("./return.routes"));
   router.use("/wallet",       require("./wallet.routes"));

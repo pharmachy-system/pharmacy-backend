@@ -92,7 +92,7 @@ exports.getRevenueByPeriod = async (req, res, next) => {
 // ─── Top Products ─────────────────────────────────────────────────────────────
 exports.getTopProducts = async (req, res, next) => {
   try {
-    const limit = parseInt(req.query.limit) || 10;
+    const limit = Math.min(50, parseInt(req.query.limit) || 10);
     const since = req.query.since ? new Date(req.query.since) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
     const data = await Order.aggregate([
@@ -156,7 +156,7 @@ exports.getUserTrend = async (req, res, next) => {
 // ─── Recent Orders ────────────────────────────────────────────────────────────
 exports.getRecentOrders = async (req, res, next) => {
   try {
-    const limit = parseInt(req.query.limit) || 10;
+    const limit = Math.min(50, parseInt(req.query.limit) || 10);
     const orders = await Order.find()
       .populate("user", "name email")
       .sort({ createdAt: -1 })

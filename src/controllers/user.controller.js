@@ -299,7 +299,7 @@ exports.getLoyaltyPoints = async (req, res, next) => {
     const user = await User.findById(req.user._id).select("loyaltyPoints");
 
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
+    const limit = Math.min(100, parseInt(req.query.limit) || 20);
     const skip = (page - 1) * limit;
 
     const [transactions, total] = await Promise.all([

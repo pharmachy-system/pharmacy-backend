@@ -189,10 +189,10 @@ exports.createOrder = async (req, res, next) => {
       loyaltyPointsUsed = Math.min(user.loyaltyPoints, maxPointsDiscount);
     }
 
-    // Wallet payment — validate balance up front
+    // Wallet payment — paymentMethod:"wallet" always deducts balance
     let walletUsed = 0;
     let walletDoc = null;
-    if (useWallet && paymentMethod === "wallet") {
+    if (paymentMethod === "wallet") {
       const WalletModel = require("../models/Wallet.model");
       walletDoc = await WalletModel.findOne({ user: req.user._id });
       const orderTotal = subtotal + deliveryFee - couponDiscount - loyaltyPointsUsed;

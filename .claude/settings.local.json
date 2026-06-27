@@ -33,7 +33,16 @@
       "Bash(sw_vers)",
       "Bash(mongod --version)",
       "Bash(xargs -I {} basename {})",
-      "Bash(git reset *)"
+      "Bash(git reset *)",
+      "Bash(git -C /Users/AmalAlSari/Desktop/pharmacy-backend-main add src/config/env.js src/controllers/cart.controller.js src/controllers/delivery.controller.js src/controllers/return.controller.js src/controllers/user.controller.js src/middlewares/auth.middleware.js src/models/Medicine.model.js src/routes/order.routes.js src/routes/user.routes.js src/validators/joi.validators.js tests/orders.test.js)",
+      "Bash(git -C /Users/AmalAlSari/Desktop/pharmacy-backend-main commit -m ' *)",
+      "Bash(sed -i '' 's/const limit = parseInt\\(req.query.limit\\) || 20;/const limit = Math.min\\(100, parseInt\\(req.query.limit\\) || 20\\);/g' /Users/AmalAlSari/Desktop/pharmacy-backend-main/src/controllers/coupon.controller.js)",
+      "Bash(sed -i '' 's/const limit = parseInt\\(req.query.limit\\) || 20;/const limit = Math.min\\(100, parseInt\\(req.query.limit\\) || 20\\);/g' /Users/AmalAlSari/Desktop/pharmacy-backend-main/src/controllers/prescription.controller.js)",
+      "Bash(sed -i '' 's/const limit = parseInt\\(req.query.limit\\) || 10;/const limit = Math.min\\(100, parseInt\\(req.query.limit\\) || 10\\);/g' /Users/AmalAlSari/Desktop/pharmacy-backend-main/src/controllers/prescription.controller.js)",
+      "Bash(sed -i '' 's/const limit = parseInt\\(req.query.limit\\) || 10;/const limit = Math.min\\(50, parseInt\\(req.query.limit\\) || 10\\);/g' /Users/AmalAlSari/Desktop/pharmacy-backend-main/src/controllers/review.controller.js)",
+      "Bash(sed -i '' 's/const limit = parseInt\\(req.query.limit\\) || 20;/const limit = Math.min\\(100, parseInt\\(req.query.limit\\) || 20\\);/g' /Users/AmalAlSari/Desktop/pharmacy-backend-main/src/controllers/review.controller.js)",
+      "Bash(git -C /Users/AmalAlSari/Desktop/pharmacy-backend-main add -A)",
+      "Bash(git -C /Users/AmalAlSari/Desktop/pharmacy-backend-main status)"
     ],
     "deny": [],
     "ask": []

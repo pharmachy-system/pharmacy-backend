@@ -55,7 +55,7 @@ exports.getMyReferral = async (req, res, next) => {
 exports.getReferredUsers = async (req, res, next) => {
   try {
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
+    const limit = Math.min(100, parseInt(req.query.limit) || 20);
     const skip = (page - 1) * limit;
 
     const [users, total] = await Promise.all([

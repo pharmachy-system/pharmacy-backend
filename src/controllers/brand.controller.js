@@ -8,7 +8,7 @@ exports.getAllBrands = async (req, res, next) => {
     if (req.query.search) filter.name = { $regex: req.query.search, $options: "i" };
 
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 50;
+    const limit = Math.min(200, parseInt(req.query.limit) || 50);
     const skip = (page - 1) * limit;
 
     const [brands, total] = await Promise.all([

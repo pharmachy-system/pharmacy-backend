@@ -18,7 +18,7 @@ const recalculateRating = async (medicineId) => {
 exports.getMedicineReviews = async (req, res, next) => {
   try {
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    const limit = Math.min(50, parseInt(req.query.limit) || 10);
     const skip = (page - 1) * limit;
 
     const filter = { medicine: req.params.medicineId, status: "approved" };
@@ -157,7 +157,7 @@ exports.markHelpful = async (req, res, next) => {
 exports.getAllReviews = async (req, res, next) => {
   try {
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
+    const limit = Math.min(100, parseInt(req.query.limit) || 20);
     const skip = (page - 1) * limit;
 
     const filter = {};

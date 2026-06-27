@@ -11,6 +11,8 @@ const loyaltyTransactionSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 loyaltyTransactionSchema.index({ user: 1, createdAt: -1 });
+loyaltyTransactionSchema.index({ user: 1, type: 1 });            // history filtered by type
 loyaltyTransactionSchema.index({ order: 1 }, { sparse: true });
-loyaltyTransactionSchema.index({ type: 1 });
+// Auto-expire records 1 year after their points expire (for record-keeping)
+loyaltyTransactionSchema.index({ expiresAt: 1 }, { sparse: true, expireAfterSeconds: 365 * 24 * 60 * 60 });
 module.exports = mongoose.model("LoyaltyTransaction", loyaltyTransactionSchema);

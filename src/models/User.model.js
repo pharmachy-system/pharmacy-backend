@@ -38,7 +38,6 @@ const userSchema = new mongoose.Schema({
   referredBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   wallet: { type: mongoose.Schema.Types.ObjectId, ref: "Wallet" },
   fcmToken: { type: String },
-  lastLogin: { type: Date },
   blockedReason: { type: String },
   referralRewardClaimed: { type: Boolean, default: false },
 
@@ -48,7 +47,7 @@ const userSchema = new mongoose.Schema({
   phoneOTPLastSent: { type: Date, select: false },
 
   // ── Nafath (Saudi National Digital ID) ────────────────────────────────────
-  nafathId:       { type: String, sparse: true },
+  nafathId:       { type: String },
   nafathVerified: { type: Boolean, default: false },
 
   // ── Login lockout ──────────────────────────────────────────────────────────
@@ -82,7 +81,17 @@ const userSchema = new mongoose.Schema({
   }],
 }, { timestamps: true });
 
-userSchema.index({ phone: 1 });
+userSchema.index({ phone: 1 }, { sparse: true });
+userSchema.index({ role: 1, isActive: 1 });
+userSchema.index({ isActive: 1 });
+// Social login lookup
+userSchema.index({ socialProvider: 1, socialId: 1 }, { sparse: true });
+// Driver availability queries
+userSchema.index({ driverStatus: 1 }, { sparse: true, partialFilterExpression: { role: "delivery" } });
+// Nafath verification lookup
+userSchema.index({ nafathId: 1 }, { sparse: true });
+// Password reset token lookup
+userSchema.index({ resetPasswordToken: 1 }, { sparse: true });
 
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password") || !this.password) return next();

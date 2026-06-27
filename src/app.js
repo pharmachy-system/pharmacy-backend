@@ -16,6 +16,7 @@ const errorHandler = require('./middlewares/errorHandler');
 
 // Config
 const swaggerSpec = require('./config/swagger.config');
+const { initSentry } = require('./config/sentry.config');
 
 const app = express();
 
@@ -77,7 +78,9 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, swaggerUiOpti
 // Routes
 require('./routes')(app);
 
-
+// Sentry Express error handler — must come after routes, before the 404/error handlers.
+// No-op when SENTRY_DSN is not set or @sentry/node is not installed.
+initSentry(app);
 
 // 404 handler
 app.use(notFound);

@@ -29,10 +29,14 @@
  *   /api/user/devices/**       Multi-device session management
  *   /api/admin/dashboard/**    Admin KPI dashboard
  *   /api/admin/inventory/**    Admin inventory management
+ *   /api/app/**                Home screen, app config (public, unauthenticated)
  *   /health                    Health check
  */
 
 module.exports = (app) => {
+  // ── App bootstrap (home screen, config) — no auth ───────────────────────────
+  app.use("/api/app",         require("./app.routes"));
+
   // ── Auth & identity ─────────────────────────────────────────────────────────
   app.use("/api/auth",        require("./auth.routes"));
   app.use("/api/user/devices",require("./device.routes"));

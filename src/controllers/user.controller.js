@@ -293,6 +293,16 @@ exports.adminResetUserPassword = async (req, res, next) => {
   }
 };
 
+// ─── Update FCM Token ─────────────────────────────────────────────────────────
+exports.updateFcmToken = async (req, res, next) => {
+  try {
+    await User.findByIdAndUpdate(req.user._id, { fcmToken: req.body.fcmToken });
+    res.json({ success: true, message: "FCM token updated" });
+  } catch (err) {
+    next(err);
+  }
+};
+
 // ─── Loyalty Points ───────────────────────────────────────────────────────────
 exports.getLoyaltyPoints = async (req, res, next) => {
   try {

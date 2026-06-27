@@ -19,6 +19,9 @@ const couponSchema = new mongoose.Schema({
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
 }, { timestamps: true });
 
+couponSchema.index({ isActive: 1, validFrom: 1, validUntil: 1 }); // coupon validity check
+couponSchema.index({ code: 1, isActive: 1 });                     // code lookup by status
+
 couponSchema.methods.isValid = function () {
   const now = new Date();
   return this.isActive && now >= this.validFrom && now <= this.validUntil &&

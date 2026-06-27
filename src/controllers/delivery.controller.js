@@ -29,6 +29,28 @@ exports.getAllZones = async (req, res, next) => {
   }
 };
 
+// GET /api/delivery/zones/lookup?city=Riyadh
+// Returns the zone that covers the given city, or 404 if none.
+exports.lookupZoneByCity = async (req, res, next) => {
+  try {
+    const { city } = req.query;
+    if (!city) return res.status(400).json({ success: false, message: "city query parameter is required" });
+
+    const zone = await DeliveryZone.findOne({
+      isActive: true,
+      cities: { $regex: new RegExp(`^${city.trim()}$`, "i") },
+    }).select("name nameAr cities deliveryFee freeDeliveryThreshold minDeliveryTime maxDeliveryTime slots");
+
+    if (!zone) {
+      return res.status(404).json({ success: false, message: "No delivery zone found for the specified city" });
+    }
+
+    res.json({ success: true, zone });
+  } catch (err) {
+    next(err);
+  }
+};
+
 exports.getZoneById = async (req, res, next) => {
   try {
     const zone = await DeliveryZone.findById(req.params.id);

@@ -1,7 +1,7 @@
 const express = require("express");
 const router  = express.Router();
 const {
-  getAllZones, getZoneById, createZone, updateZone, deleteZone,
+  getAllZones, getZoneById, lookupZoneByCity, createZone, updateZone, deleteZone,
   calculateFee,
   assignDriver,
   getMyDeliveries, markDelivered,
@@ -15,6 +15,7 @@ const { schemas }  = require("../validators/joi.validators");
 const { strictLimiter } = require("../middlewares/rateLimiter");
 
 // ── Public ────────────────────────────────────────────────────────────────────
+router.get("/zones/lookup",  lookupZoneByCity);  // ?city=Riyadh  — must be before /zones/:id
 router.get("/zones",         getAllZones);
 router.post("/calculate-fee", calculateFee);
 

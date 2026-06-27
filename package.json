@@ -4,15 +4,20 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
+    "start:prod": "NODE_ENV=production node index.js",
     "dev": "nodemon index.js",
     "seed": "node scripts/seed.js",
     "seed:fresh": "node scripts/seed.js --fresh",
+    "db:indexes": "node scripts/ensure-indexes.js",
     "test": "jest --runInBand --detectOpenHandles --forceExit",
     "test:watch": "jest --runInBand --watch",
     "test:coverage": "jest --runInBand --coverage --detectOpenHandles --forceExit",
-    "lint": "eslint src/ index.js",
-    "lint:fix": "eslint src/ index.js --fix",
-    "format": "prettier --write \"**/*.{js,json,md}\""
+    "lint": "eslint src/ index.js scripts/",
+    "lint:fix": "eslint src/ index.js scripts/ --fix",
+    "format": "prettier --write \"**/*.{js,json,md}\"",
+    "docker:build": "docker build -t pharmacy-api .",
+    "docker:up": "docker compose up",
+    "docker:down": "docker compose down"
   },
   "jest": {
     "testEnvironment": "node",
@@ -57,10 +62,16 @@
     "winston-daily-rotate-file": "^5.0.0",
     "xlsx": "^0.18.5"
   },
+  "optionalDependencies": {
+    "@sentry/node": "^8.0.0"
+  },
   "devDependencies": {
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
     "jest": "^30.3.0",
     "mongodb-memory-server": "^11.2.0",
     "nodemon": "^3.1.14",
+    "prettier": "^3.3.0",
     "supertest": "^7.2.2"
   }
 }

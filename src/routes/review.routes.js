@@ -9,11 +9,12 @@ const authorize = require("../middlewares/role.middleware");
 const { joiValidate } = require("../middlewares/joiValidate.middleware");
 const { schemas }     = require("../validators/joi.validators");
 
-// GET /api/medicines/:medicineId/reviews
-// GET /api/reviews (admin)
+// GET /api/medicines/:medicineId/reviews  — public, no auth needed
+// GET /api/reviews                        — admin only, requires auth
 router.get("/", (req, res, next) => {
   if (req.params.medicineId) return getMedicineReviews(req, res, next);
-  return authorize("admin", "pharmacist")(req, res, () => getAllReviews(req, res, next));
+  // Admin branch: protect must run before authorize
+  return protect(req, res, () => authorize("admin", "pharmacist")(req, res, () => getAllReviews(req, res, next)));
 });
 
 // POST /api/medicines/:medicineId/reviews

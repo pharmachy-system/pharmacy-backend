@@ -37,7 +37,7 @@ const userPayload = (user) => ({
   nafathVerified:  user.nafathVerified,
   loginCount:      user.loginCount || 0,
   isReturningUser: (user.loginCount || 0) > 1,
-  lastLoginAt:     user.lastLoginAt || user.lastLogin || null,
+  lastLoginAt:     user.lastLoginAt || null,
 });
 
 // ─── Shared login success handler ─────────────────────────────────────────────
@@ -48,7 +48,6 @@ const issueTokensAndRespond = async (res, user, deviceInfo, req, { statusCode = 
 
   const now = new Date();
   user.refreshToken  = refreshToken;
-  user.lastLogin     = now;    // legacy compat
   user.lastLoginAt   = now;
   user.loginCount    = (user.loginCount || 0) + 1;
   user.resetLoginAttempts();
@@ -173,7 +172,7 @@ exports.refreshToken = async (req, res, next) => {
 
     let session = null;
     if (deviceId) {
-      session = await Session.findOne({ deviceId, isActive: true }).select("+refreshTokenHash");
+      session = await Session.findOne({ user: decoded.id, deviceId, isActive: true }).select("+refreshTokenHash");
     } else {
       session = await Session.findOne({ user: decoded.id, refreshTokenHash: tokenHash, isActive: true })
         .select("+refreshTokenHash");

@@ -1,8 +1,8 @@
 const mongoose = require("mongoose");
 
 const cartSchema = new mongoose.Schema({
-  user: { type: mongoose.Schema.Types.ObjectId, ref: "User", sparse: true },
-  sessionId: { type: String, sparse: true },
+  user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  sessionId: { type: String },
   items: [{
     medicine: { type: mongoose.Schema.Types.ObjectId, ref: "Medicine", required: true },
     quantity: { type: Number, required: true, min: 1, default: 1 },
@@ -13,7 +13,11 @@ const cartSchema = new mongoose.Schema({
   couponDiscount: { type: Number, default: 0 },
 }, { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } });
 
-// Indexes created by sparse: true on field definitions above
+// One cart per user / per guest session
+cartSchema.index({ user: 1 }, { unique: true, sparse: true });
+cartSchema.index({ sessionId: 1 }, { unique: true, sparse: true });
+// TTL: auto-remove abandoned guest carts after 30 days
+cartSchema.index({ updatedAt: 1 }, { expireAfterSeconds: 30 * 24 * 60 * 60, partialFilterExpression: { user: { $exists: false } } });
 
 cartSchema.virtual("subtotal").get(function () {
   return parseFloat(this.items.reduce((s, i) => s + i.price * i.quantity, 0).toFixed(2));

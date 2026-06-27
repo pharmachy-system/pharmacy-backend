@@ -12,7 +12,8 @@ const medicineSchema = new mongoose.Schema({
   subcategory: { type: mongoose.Schema.Types.ObjectId, ref: "Category" },
   brand: { type: mongoose.Schema.Types.ObjectId, ref: "Brand" },
   price: { type: Number, required: true, min: 0 },
-  comparePrice: { type: Number, min: 0 },
+  salePrice: { type: Number, min: 0 },        // explicit sale price; takes priority over discount
+  comparePrice: { type: Number, min: 0 },     // original/crossed-out price shown in UI
   discount: { type: Number, default: 0, min: 0, max: 100 },
   finalPrice: { type: Number, min: 0 },
   stock: { type: Number, required: true, default: 0, min: 0 },
@@ -50,7 +51,10 @@ medicineSchema.index({ brand: 1, isActive: 1 });
 medicineSchema.index({ finalPrice: 1, isActive: 1 });
 medicineSchema.index({ isFlashSale: 1, flashSaleEnd: 1, isActive: 1 });
 medicineSchema.index({ isFeatured: 1, isActive: 1 });
-medicineSchema.index({ soldCount: -1 });
+medicineSchema.index({ isActive: 1, soldCount: -1 });           // top-sellers list
+medicineSchema.index({ isActive: 1, stock: 1 });                // low-stock queries
+medicineSchema.index({ isActive: 1, expiryDate: 1 }, { sparse: true }); // expiry reports
+medicineSchema.index({ requiresPrescription: 1, isActive: 1 }); // prescription filter
 
 medicineSchema.virtual("isLowStock").get(function () { return this.stock > 0 && this.stock <= this.lowStockThreshold; });
 medicineSchema.virtual("isOutOfStock").get(function () { return this.stock === 0; });
@@ -60,9 +64,14 @@ medicineSchema.pre("save", function (next) {
   if (this.isModified("name") || !this.slug) {
     this.slug = slugify(this.name + "-" + Date.now(), { lower: true, strict: true });
   }
-  this.finalPrice = this.discount > 0
-    ? parseFloat((this.price * (1 - this.discount / 100)).toFixed(2))
-    : this.price;
+  // salePrice takes priority; discount is secondary; otherwise full price
+  if (this.salePrice && this.salePrice < this.price) {
+    this.finalPrice = parseFloat(this.salePrice.toFixed(2));
+  } else if (this.discount > 0) {
+    this.finalPrice = parseFloat((this.price * (1 - this.discount / 100)).toFixed(2));
+  } else {
+    this.finalPrice = this.price;
+  }
   next();
 });
 

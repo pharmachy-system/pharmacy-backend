@@ -49,9 +49,11 @@ const sessionSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// One active session per device (upsert on re-login from same device)
-sessionSchema.index({ deviceId: 1 }, { unique: true });
+// One session per user+device pair (allows same device to be used by different accounts)
+sessionSchema.index({ user: 1, deviceId: 1 }, { unique: true });
 sessionSchema.index({ user: 1, isActive: 1 });
+// Fast lookup by deviceId alone (for biometric/PIN flows that don't yet know the user)
+sessionSchema.index({ deviceId: 1 });
 // MongoDB auto-removes expired sessions
 sessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 

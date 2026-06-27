@@ -64,8 +64,13 @@ const upsertSession = async (userId, refreshToken, deviceInfo, req, { rememberDe
   };
 
   await Session.findOneAndUpdate(
-    { deviceId: deviceInfo.deviceId },
-    { $set: sessionData, $setOnInsert: { deviceId: deviceInfo.deviceId } },
+    { user: userId, deviceId: deviceInfo.deviceId },
+    {
+      $set: sessionData,
+      // deviceId is immutable after creation; set only on insert to avoid the
+      // "conflict at 'user'" error (user is already in $set via sessionData)
+      $setOnInsert: { deviceId: deviceInfo.deviceId },
+    },
     { upsert: true, new: true }
   );
 

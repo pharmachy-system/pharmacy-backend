@@ -16,6 +16,7 @@ const reviewSchema = new mongoose.Schema({
   repliedAt: { type: Date },
 }, { timestamps: true });
 
-reviewSchema.index({ medicine: 1, status: 1 });
-reviewSchema.index({ medicine: 1, user: 1 }, { unique: true });
+reviewSchema.index({ medicine: 1, status: 1, createdAt: -1 }); // approved reviews ordered by time
+reviewSchema.index({ medicine: 1, user: 1 }, { unique: true }); // one review per user per medicine
+reviewSchema.index({ user: 1, createdAt: -1 });                 // user's review history
 module.exports = mongoose.model("Review", reviewSchema);

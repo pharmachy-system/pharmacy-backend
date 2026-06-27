@@ -21,4 +21,5 @@ paymentSchema.index({ user: 1, createdAt: -1 });
 paymentSchema.index({ stripePaymentIntentId: 1 }, { sparse: true });
 paymentSchema.index({ stripeChargeId: 1 }, { sparse: true });
 paymentSchema.index({ status: 1, createdAt: -1 });
+paymentSchema.index({ method: 1, status: 1, createdAt: -1 }); // revenue by payment method
 module.exports = mongoose.model("Payment", paymentSchema);

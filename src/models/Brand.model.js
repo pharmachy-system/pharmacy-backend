@@ -13,6 +13,9 @@ const brandSchema = new mongoose.Schema({
   isFeatured: { type: Boolean, default: false },
 }, { timestamps: true });
 
+brandSchema.index({ isActive: 1, isFeatured: 1 }); // featured brand listing
+brandSchema.index({ isActive: 1 });                // general brand listing
+
 brandSchema.pre("save", function (next) {
   if (this.isModified("name")) this.slug = slugify(this.name, { lower: true, strict: true });
   next();

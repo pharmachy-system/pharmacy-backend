@@ -44,5 +44,6 @@ const returnSchema = new mongoose.Schema({
 returnSchema.index({ user: 1, createdAt: -1 });
 returnSchema.index({ order: 1 });
 returnSchema.index({ status: 1, createdAt: -1 });
+returnSchema.index({ returnType: 1, status: 1 }); // filter by type+status in admin panel
 
 module.exports = mongoose.model("Return", returnSchema);

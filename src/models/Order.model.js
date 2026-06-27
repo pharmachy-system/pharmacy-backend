@@ -50,10 +50,11 @@ const orderSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 orderSchema.index({ user: 1, createdAt: -1 });
+orderSchema.index({ user: 1, status: 1 });              // "my orders by status" — very common
 orderSchema.index({ status: 1, createdAt: -1 });
 orderSchema.index({ driver: 1, status: 1 });
-orderSchema.index({ paymentStatus: 1 });
-orderSchema.index({ paymentMethod: 1 });
+orderSchema.index({ paymentStatus: 1, createdAt: -1 }); // payment reconciliation
+orderSchema.index({ paymentMethod: 1, createdAt: -1 }); // revenue by payment method
 orderSchema.index({ createdAt: -1 });
 
 module.exports = mongoose.model("Order", orderSchema);

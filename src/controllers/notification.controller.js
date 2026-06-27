@@ -1,5 +1,15 @@
 const Notification = require("../models/Notification.model");
 
+// Lightweight badge-count endpoint — single DB call, no pagination overhead
+exports.getUnreadCount = async (req, res, next) => {
+  try {
+    const count = await Notification.countDocuments({ user: req.user._id, isRead: false });
+    res.json({ success: true, count });
+  } catch (err) {
+    next(err);
+  }
+};
+
 exports.getNotifications = async (req, res, next) => {
   try {
     const page = parseInt(req.query.page) || 1;

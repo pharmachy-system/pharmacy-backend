@@ -16,6 +16,7 @@ const categorySchema = new mongoose.Schema({
 categorySchema.virtual("subcategories", { ref: "Category", localField: "_id", foreignField: "parent" });
 // slug index created by unique: true above
 categorySchema.index({ parent: 1 });
+categorySchema.index({ isActive: 1, isFeatured: 1 }); // active category listing
 
 categorySchema.pre("save", function (next) {
   if (this.isModified("name")) {

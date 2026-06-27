@@ -19,6 +19,8 @@ const articleSchema = new mongoose.Schema({
 
 // slug index created by unique: true above
 articleSchema.index({ status: 1, publishedAt: -1 });
+articleSchema.index({ status: 1, isFeatured: 1 });       // featured articles widget
+articleSchema.index({ status: 1, category: 1 });          // articles by category
 
 articleSchema.pre("save", function (next) {
   if (this.isModified("title")) {

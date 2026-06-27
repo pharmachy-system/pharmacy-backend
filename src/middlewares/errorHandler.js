@@ -1,5 +1,6 @@
 const AppError = require("../utils/AppError");
 const logger = require("../config/logger.config");
+const { captureException } = require("../config/sentry.config");
 
 const handleCastError = (err) =>
   new AppError(`Invalid ${err.path}: ${err.value}`, 400);
@@ -56,6 +57,12 @@ const errorHandler = (err, req, res, next) => {
       url: req.originalUrl,
       method: req.method,
       stack: error.stack,
+    });
+    // Forward unhandled programmer errors to Sentry (no-op when SENTRY_DSN is unset)
+    captureException(err, {
+      url:    req.originalUrl,
+      method: req.method,
+      userId: req.user?._id?.toString(),
     });
   }
 

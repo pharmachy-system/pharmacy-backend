@@ -1,0 +1,39 @@
+# Node
+node_modules/
+npm-debug.log*
+
+# Environment files — NEVER bake secrets into the image
+.env
+.env.*
+
+# Tests and CI config — not needed at runtime
+tests/
+coverage/
+.github/
+
+# Dev tools
+.reorg-backup/
+debug-test.js
+test-db.js
+import-products.js
+products-import.json
+make-admin.js
+pharmacy-api.postman_collection.json
+
+# Logs — mounted as a volume at runtime
+logs/
+*.log
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+
+# Git
+.git/
+.gitignore
+
+# Docs — not needed in the Docker image
+docs/
+README.md
+REORG_LOG.md

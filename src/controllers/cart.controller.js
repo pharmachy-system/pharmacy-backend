@@ -1,6 +1,10 @@
 const Cart = require("../models/Cart.model");
 const Medicine = require("../models/Medicine.model");
 const Coupon = require("../models/Coupon.model");
+const DeliveryZone = require("../models/DeliveryZone.model");
+const GuestSession = require("../models/GuestSession.model");
+const User = require("../models/User.model");
+const Wallet = require("../models/Wallet.model");
 
 const getOrCreateCart = async (userId) => {
   let cart = await Cart.findOne({ user: userId });
@@ -192,6 +196,156 @@ exports.removeCoupon = async (req, res, next) => {
   try {
     await Cart.findOneAndUpdate({ user: req.user._id }, { coupon: null, couponDiscount: 0 });
     res.json({ success: true, message: "Coupon removed" });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─── Cart Count (badge) ───────────────────────────────────────────────────────
+exports.getCartCount = async (req, res, next) => {
+  try {
+    const cart = await Cart.findOne({ user: req.user._id }).select("items");
+    const count = cart ? cart.items.reduce((sum, i) => sum + i.quantity, 0) : 0;
+    res.json({ success: true, count });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─── Checkout Summary (preview totals before creating order) ──────────────────
+// POST /api/cart/checkout-summary
+// Body: { deliveryZoneId?, couponCode?, useLoyaltyPoints? }
+exports.getCheckoutSummary = async (req, res, next) => {
+  try {
+    const { deliveryZoneId, couponCode, useLoyaltyPoints } = req.body;
+
+    const cart = await Cart.findOne({ user: req.user._id }).populate(
+      "items.medicine", "finalPrice flashSalePrice isFlashSale stock isActive requiresPrescription name"
+    );
+
+    if (!cart || cart.items.length === 0) {
+      return res.status(400).json({ success: false, message: "Cart is empty" });
+    }
+
+    const activeItems = cart.items.filter((i) => i.medicine?.isActive && i.medicine.stock >= i.quantity);
+    if (activeItems.length === 0) {
+      return res.status(400).json({ success: false, message: "No available items in cart" });
+    }
+
+    let subtotal = 0;
+    const items = activeItems.map((item) => {
+      const price = item.medicine.isFlashSale && item.medicine.flashSalePrice
+        ? item.medicine.flashSalePrice
+        : item.medicine.finalPrice;
+      subtotal += price * item.quantity;
+      return { name: item.medicine.name, quantity: item.quantity, price, total: price * item.quantity, requiresPrescription: item.medicine.requiresPrescription };
+    });
+
+    // Delivery fee
+    let deliveryFee = 0;
+    let zoneInfo = null;
+    if (deliveryZoneId) {
+      const zone = await DeliveryZone.findById(deliveryZoneId).select("name deliveryFee freeDeliveryThreshold minDeliveryTime maxDeliveryTime");
+      if (zone) {
+        deliveryFee = subtotal >= zone.freeDeliveryThreshold ? 0 : zone.deliveryFee;
+        zoneInfo = { name: zone.name, deliveryFee, freeDeliveryThreshold: zone.freeDeliveryThreshold, estimatedDays: `${zone.minDeliveryTime}-${zone.maxDeliveryTime}` };
+      }
+    }
+
+    // Coupon discount
+    let couponDiscount = 0;
+    let couponInfo = null;
+    if (couponCode) {
+      const coupon = await Coupon.findOne({ code: couponCode.toUpperCase() });
+      if (coupon && coupon.isValid()) {
+        const userUsage = coupon.usedBy.filter((id) => id.toString() === req.user._id.toString()).length;
+        if (userUsage < coupon.perUserLimit && subtotal >= coupon.minOrderAmount) {
+          couponDiscount = coupon.type === "percentage" ? (subtotal * coupon.value) / 100 : coupon.value;
+          if (coupon.maxDiscount) couponDiscount = Math.min(couponDiscount, coupon.maxDiscount);
+          couponDiscount = Math.round(couponDiscount * 100) / 100;
+          couponInfo = { code: coupon.code, type: coupon.type, value: coupon.value, discount: couponDiscount };
+        }
+      }
+    }
+
+    // Loyalty points discount
+    let loyaltyDiscount = 0;
+    const user = await User.findById(req.user._id).select("loyaltyPoints");
+    if (useLoyaltyPoints && user.loyaltyPoints > 0) {
+      loyaltyDiscount = Math.min(user.loyaltyPoints, Math.floor(subtotal * 0.1));
+    }
+
+    // Wallet balance (informational)
+    const wallet = await Wallet.findOne({ user: req.user._id }).select("balance");
+
+    const total = Math.max(0, subtotal + deliveryFee - couponDiscount - loyaltyDiscount);
+
+    res.json({
+      success: true,
+      summary: {
+        items,
+        subtotal: Math.round(subtotal * 100) / 100,
+        deliveryFee,
+        couponDiscount,
+        loyaltyDiscount,
+        total: Math.round(total * 100) / 100,
+        zone: zoneInfo,
+        coupon: couponInfo,
+        loyaltyPointsAvailable: user.loyaltyPoints,
+        walletBalance: wallet?.balance ?? 0,
+        requiresPrescription: items.some((i) => i.requiresPrescription),
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─── Merge Guest Cart ─────────────────────────────────────────────────────────
+// POST /api/cart/merge-guest
+// Body: { guestId }
+// Called after login when the user had an active guest session.
+exports.mergeGuestCart = async (req, res, next) => {
+  try {
+    const { guestId } = req.body;
+    if (!guestId) return res.status(400).json({ success: false, message: "guestId is required" });
+
+    const guestSession = await GuestSession.findOne({ guestId });
+    if (!guestSession || guestSession.cart.length === 0) {
+      return res.json({ success: true, message: "No guest cart to merge", merged: 0 });
+    }
+
+    const userCart = await getOrCreateCart(req.user._id);
+    let merged = 0;
+
+    for (const guestItem of guestSession.cart) {
+      const medicine = await Medicine.findOne({ _id: guestItem.medicine, isActive: true });
+      if (!medicine || medicine.stock < 1) continue;
+
+      const existing = userCart.items.find((i) => i.medicine.toString() === guestItem.medicine.toString());
+      const price = medicine.isFlashSale && medicine.flashSalePrice ? medicine.flashSalePrice : medicine.finalPrice;
+
+      if (existing) {
+        const newQty = existing.quantity + guestItem.quantity;
+        existing.quantity = Math.min(newQty, medicine.stock);
+        existing.price = price;
+      } else {
+        userCart.items.push({
+          medicine: medicine._id,
+          quantity: Math.min(guestItem.quantity, medicine.stock),
+          price,
+          name: medicine.name,
+        });
+      }
+      merged++;
+    }
+
+    await userCart.save();
+
+    // Expire the guest session after merge
+    await GuestSession.deleteOne({ guestId });
+
+    res.json({ success: true, message: `Merged ${merged} item(s) from guest cart`, merged, itemCount: userCart.items.length });
   } catch (err) {
     next(err);
   }

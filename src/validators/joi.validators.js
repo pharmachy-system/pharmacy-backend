@@ -472,10 +472,11 @@ const review = {
 // ─── Prescription ─────────────────────────────────────────────────────────────
 const prescription = {
   create: Joi.object({
-    doctorName: Joi.string().trim().min(2).max(100).required().messages({ "any.required": m("Doctor name is required", "اسم الطبيب مطلوب") }),
-    medicines:  Joi.array().items(Joi.string()).min(1).optional(),
-    notes:      Joi.string().max(500).optional(),
-    expiryDate: Joi.date().greater("now").optional(),
+    doctor:         Joi.string().trim().min(2).max(100).required().messages({ "any.required": m("Doctor name is required", "اسم الطبيب مطلوب") }),
+    hospitalClinic: Joi.string().trim().max(200).optional(),
+    medicines:      Joi.array().items(Joi.string()).min(1).optional(),
+    notes:          Joi.string().max(500).optional(),
+    expiryDate:     Joi.date().greater("now").optional(),
   }),
 
   updateStatus: Joi.object({
@@ -534,6 +535,24 @@ const user = {
     lat:        Joi.number().min(-90).max(90).optional(),
     lng:        Joi.number().min(-180).max(180).optional(),
     isDefault:  Joi.boolean().default(false),
+  }),
+
+  updateAddress: Joi.object({
+    label:      Joi.string().valid("home", "work", "other").optional(),
+    fullName:   Joi.string().trim().optional(),
+    phone:      phone().optional(),
+    street:     Joi.string().trim().optional(),
+    city:       Joi.string().trim().optional(),
+    region:     Joi.string().trim().optional(),
+    postalCode: Joi.string().trim().optional(),
+    country:    Joi.string().length(2).uppercase().optional(),
+    lat:        Joi.number().min(-90).max(90).optional(),
+    lng:        Joi.number().min(-180).max(180).optional(),
+    isDefault:  Joi.boolean().optional(),
+  }),
+
+  updateFcmToken: Joi.object({
+    fcmToken: Joi.string().trim().required().messages({ "any.required": m("FCM token is required", "رمز الإشعارات مطلوب") }),
   }),
 };
 

@@ -9,10 +9,13 @@
 require("dotenv").config();
 const mongoose = require("mongoose");
 
-const User      = require("../src/models/User.model");
-const Category  = require("../src/models/Category.model");
-const Brand     = require("../src/models/Brand.model");
-const Medicine  = require("../src/models/Medicine.model");
+const User         = require("../src/models/User.model");
+const Category     = require("../src/models/Category.model");
+const Brand        = require("../src/models/Brand.model");
+const Medicine     = require("../src/models/Medicine.model");
+const DeliveryZone = require("../src/models/DeliveryZone.model");
+const Coupon       = require("../src/models/Coupon.model");
+const Wallet       = require("../src/models/Wallet.model");
 
 const FRESH = process.argv.includes("--fresh");
 
@@ -55,9 +58,18 @@ async function seed() {
       Category.deleteMany({}),
       Brand.deleteMany({}),
       Medicine.deleteMany({}),
+      DeliveryZone.deleteMany({}),
+      Coupon.deleteMany({}),
     ]);
-    // Delete seeded admin (identified by ADMIN_REGISTRATION_SECRET comment)
-    await User.deleteOne({ email: process.env.SEED_ADMIN_EMAIL || "admin@pharmacy.sa" });
+    await User.deleteMany({
+      email: {
+        $in: [
+          process.env.SEED_ADMIN_EMAIL      || "admin@pharmacy.sa",
+          process.env.SEED_PHARMACIST_EMAIL  || "pharmacist@pharmacy.sa",
+          process.env.SEED_DRIVER_EMAIL      || "driver@pharmacy.sa",
+        ],
+      },
+    });
     warn("Existing seed data cleared (--fresh)");
   }
 
@@ -207,6 +219,144 @@ async function seed() {
     } else {
       await Medicine.create(med);
       ok(`Medicine: ${med.name}`);
+    }
+  }
+
+  // ── 5. Delivery zones ───────────────────────────────────────────────────────
+  const zones = [
+    {
+      name: "Riyadh Central",
+      nameAr: "وسط الرياض",
+      cities: ["Riyadh", "Al Malaz", "Al Olaya"],
+      deliveryFee: 15,
+      freeDeliveryThreshold: 100,
+      minDeliveryTime: 1,
+      maxDeliveryTime: 3,
+      isActive: true,
+      slots: [
+        { from: "09:00", to: "13:00", isActive: true, maxOrders: 50 },
+        { from: "13:00", to: "17:00", isActive: true, maxOrders: 50 },
+        { from: "17:00", to: "21:00", isActive: true, maxOrders: 30 },
+      ],
+    },
+    {
+      name: "Riyadh East",
+      nameAr: "شرق الرياض",
+      cities: ["Al Rawdah", "Al Shifa", "Al Naseem"],
+      deliveryFee: 20,
+      freeDeliveryThreshold: 150,
+      minDeliveryTime: 2,
+      maxDeliveryTime: 4,
+      isActive: true,
+      slots: [
+        { from: "09:00", to: "13:00", isActive: true, maxOrders: 30 },
+        { from: "17:00", to: "21:00", isActive: true, maxOrders: 30 },
+      ],
+    },
+    {
+      name: "Jeddah",
+      nameAr: "جدة",
+      cities: ["Jeddah", "Al Balad", "Al Rawdah"],
+      deliveryFee: 25,
+      freeDeliveryThreshold: 200,
+      minDeliveryTime: 24,
+      maxDeliveryTime: 48,
+      isActive: true,
+      slots: [
+        { from: "10:00", to: "14:00", isActive: true, maxOrders: 20 },
+        { from: "18:00", to: "22:00", isActive: true, maxOrders: 20 },
+      ],
+    },
+  ];
+
+  for (const zone of zones) {
+    const exists = await DeliveryZone.findOne({ name: zone.name });
+    if (exists) {
+      warn(`Zone exists: ${zone.name}`);
+    } else {
+      await DeliveryZone.create(zone);
+      ok(`Zone: ${zone.name}`);
+    }
+  }
+
+  // ── 6. Welcome coupon ────────────────────────────────────────────────────────
+  const welcomeCoupon = {
+    code: "WELCOME15",
+    description: "15% off your first order",
+    type: "percentage",
+    value: 15,
+    minOrderAmount: 50,
+    maxDiscount: 50,
+    usageLimit: null,
+    perUserLimit: 1,
+    validFrom: new Date(),
+    validUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+    isActive: true,
+    isFirstOrderOnly: true,
+  };
+
+  const couponExists = await Coupon.findOne({ code: welcomeCoupon.code });
+  if (couponExists) {
+    warn(`Coupon exists: ${welcomeCoupon.code}`);
+  } else {
+    await Coupon.create(welcomeCoupon);
+    ok(`Coupon: ${welcomeCoupon.code} (15% off first order, max SAR 50)`);
+  }
+
+  // ── 7. Pharmacist user ──────────────────────────────────────────────────────
+  const pharmacistEmail    = process.env.SEED_PHARMACIST_EMAIL    || "pharmacist@pharmacy.sa";
+  const pharmacistPassword = process.env.SEED_PHARMACIST_PASSWORD || "Pharmacist@123";
+
+  const existingPharmacist = await User.findOne({ email: pharmacistEmail });
+  if (existingPharmacist) {
+    warn(`Pharmacist already exists: ${pharmacistEmail}`);
+  } else {
+    const bcrypt = require("bcryptjs");
+    const hash   = await bcrypt.hash(pharmacistPassword, 12);
+    await User.create({
+      name:            "Sara Al-Zahrani",
+      email:           pharmacistEmail,
+      password:        hash,
+      role:            "pharmacist",
+      isEmailVerified: true,
+      isActive:        true,
+    });
+    ok(`Pharmacist created: ${pharmacistEmail} / ${pharmacistPassword}`);
+  }
+
+  // ── 8. Delivery driver ──────────────────────────────────────────────────────
+  const driverEmail    = process.env.SEED_DRIVER_EMAIL    || "driver@pharmacy.sa";
+  const driverPassword = process.env.SEED_DRIVER_PASSWORD || "Driver@123456";
+
+  const existingDriver = await User.findOne({ email: driverEmail });
+  if (existingDriver) {
+    warn(`Driver already exists: ${driverEmail}`);
+  } else {
+    const bcrypt = require("bcryptjs");
+    const hash   = await bcrypt.hash(driverPassword, 12);
+    const driver = await User.create({
+      name:            "Mohammed Al-Harbi",
+      email:           driverEmail,
+      password:        hash,
+      role:            "delivery",
+      isEmailVerified: true,
+      isActive:        true,
+      driverStatus:    "available",
+    });
+    // Create wallet for driver
+    await Wallet.create({ user: driver._id, balance: 0 });
+    ok(`Driver created: ${driverEmail} / ${driverPassword}`);
+  }
+
+  // ── 9. Wallets for admin + pharmacist ───────────────────────────────────────
+  for (const email of [adminEmail, pharmacistEmail]) {
+    const u = await User.findOne({ email });
+    if (u) {
+      const walletExists = await Wallet.findOne({ user: u._id });
+      if (!walletExists) {
+        await Wallet.create({ user: u._id, balance: 0 });
+        ok(`Wallet created for ${email}`);
+      }
     }
   }
 

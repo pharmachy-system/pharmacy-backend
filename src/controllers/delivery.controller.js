@@ -215,7 +215,7 @@ exports.getMyDeliveries = async (req, res, next) => {
     const skip  = (page - 1) * limit;
 
     const filter = { driver: req.user._id };
-    if (req.query.status) filter.status = req.query.status;
+    if (typeof req.query.status === "string") filter.status = req.query.status;
 
     const [orders, total] = await Promise.all([
       Order.find(filter)

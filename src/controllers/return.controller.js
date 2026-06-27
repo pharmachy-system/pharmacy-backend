@@ -89,7 +89,7 @@ exports.createReturn = async (req, res, next) => {
     const returnedQty    = returnItems.reduce((s, i) => s + i.quantity, 0);
     const returnType     = returnedQty === totalOrderQty ? "full" : "partial";
 
-    const returnNumber = `RET-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const returnNumber = `RET-${Date.now()}-${require("crypto").randomBytes(3).toString("hex")}`;
 
     const returnDoc = await Return.create({
       returnNumber,
@@ -352,18 +352,30 @@ exports.completeReturn = async (req, res, next) => {
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
 async function _creditWallet(order, amount) {
-  let wallet = await Wallet.findOne({ user: order.user });
-  if (!wallet) wallet = await Wallet.create({ user: order.user, balance: 0 });
+  // Ensure wallet exists, then atomically increment balance
+  await Wallet.findOneAndUpdate(
+    { user: order.user },
+    { $setOnInsert: { user: order.user, balance: 0, transactions: [] } },
+    { upsert: true }
+  );
 
-  const newBalance = wallet.balance + amount;
-  wallet.transactions.push({
-    type:         "refund",
-    amount,
-    description:  `Refund for return on order ${order.orderNumber}`,
-    order:        order._id,
-    reference:    `RETURN-REFUND-${order.orderNumber}`,
-    balanceAfter: newBalance,
+  const updated = await Wallet.findOneAndUpdate(
+    { user: order.user },
+    { $inc: { balance: amount } },
+    { new: true }
+  );
+
+  await Wallet.findByIdAndUpdate(updated._id, {
+    $push: {
+      transactions: {
+        type:         "refund",
+        amount,
+        description:  `Refund for return on order ${order.orderNumber}`,
+        order:        order._id,
+        reference:    `RETURN-REFUND-${order.orderNumber}`,
+        balanceAfter: updated.balance,
+        createdAt:    new Date(),
+      },
+    },
   });
-  wallet.balance = newBalance;
-  await wallet.save();
 }

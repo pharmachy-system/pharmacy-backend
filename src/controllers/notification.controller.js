@@ -17,7 +17,7 @@ exports.getNotifications = async (req, res, next) => {
     const skip = (page - 1) * limit;
 
     const filter = { user: req.user._id };
-    if (req.query.type) filter.type = req.query.type;
+    if (typeof req.query.type === "string") filter.type = req.query.type;
     if (req.query.unread === "true") filter.isRead = false;
 
     const [notifications, total, unreadCount] = await Promise.all([

@@ -172,7 +172,8 @@ exports.getRecentOrders = async (req, res, next) => {
 // ─── Sales Report ─────────────────────────────────────────────────────────────
 exports.getSalesReport = async (req, res, next) => {
   try {
-    const { startDate, endDate } = req.query;
+    const startDate = typeof req.query.startDate === "string" ? req.query.startDate : undefined;
+    const endDate   = typeof req.query.endDate   === "string" ? req.query.endDate   : undefined;
     const match = { paymentStatus: "paid" };
     if (startDate || endDate) {
       match.createdAt = {};

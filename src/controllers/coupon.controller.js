@@ -34,6 +34,9 @@ exports.getCouponById = async (req, res, next) => {
 exports.validateCoupon = async (req, res, next) => {
   try {
     const { code, orderAmount } = req.body;
+    if (!code || typeof code !== "string") {
+      return res.status(400).json({ success: false, message: "Coupon code is required" });
+    }
     const coupon = await Coupon.findOne({ code: code.toUpperCase() });
 
     if (!coupon || !coupon.isValid()) {

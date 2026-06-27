@@ -129,7 +129,7 @@ exports.getUserPrescriptions = async (req, res, next) => {
     const skip = (page - 1) * limit;
 
     const filter = { user: req.user._id };
-    if (req.query.status) filter.status = req.query.status;
+    if (typeof req.query.status === "string") filter.status = req.query.status;
 
     const [prescriptions, total] = await Promise.all([
       Prescription.find(filter).populate("reviewedBy", "name").sort({ createdAt: -1 }).skip(skip).limit(limit),

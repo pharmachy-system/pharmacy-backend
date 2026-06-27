@@ -67,48 +67,71 @@ exports.creditWallet = async (req, res, next) => {
     const { userId, amount, description, reference } = req.body;
     if (!amount || amount <= 0) return next(AppError.badRequest("Amount must be greater than 0"));
 
-    const wallet = await getOrCreateWallet(userId || req.user._id);
-    const newBalance = wallet.balance + Number(amount);
+    const amt = Number(amount);
+    const targetUserId = userId || req.user._id;
 
-    wallet.transactions.push({
-      type: "credit",
-      amount: Number(amount),
-      description: description || "Wallet credit",
-      reference,
-      balanceAfter: newBalance,
+    // Ensure wallet exists, then atomically increment balance
+    await Wallet.findOneAndUpdate(
+      { user: targetUserId },
+      { $setOnInsert: { user: targetUserId, balance: 0, transactions: [] } },
+      { upsert: true }
+    );
+
+    const updated = await Wallet.findOneAndUpdate(
+      { user: targetUserId, isActive: true },
+      { $inc: { balance: amt } },
+      { new: true }
+    );
+    if (!updated) return next(AppError.badRequest("Wallet is inactive"));
+
+    await Wallet.findByIdAndUpdate(updated._id, {
+      $push: {
+        transactions: {
+          type: "credit",
+          amount: amt,
+          description: description || "Wallet credit",
+          reference: reference || undefined,
+          balanceAfter: updated.balance,
+          createdAt: new Date(),
+        },
+      },
     });
-    wallet.balance = newBalance;
-    await wallet.save();
 
-    res.json({ success: true, balance: wallet.balance, message: "Wallet credited" });
+    res.json({ success: true, balance: updated.balance, message: "Wallet credited" });
   } catch (err) {
     next(err);
   }
 };
 
-// User: debit wallet
+// User: debit wallet — atomic balance check prevents race condition double-spend
 exports.debitWallet = async (req, res, next) => {
   try {
     const { amount, description, orderId } = req.body;
     if (!amount || amount <= 0) return next(AppError.badRequest("Amount must be greater than 0"));
 
-    const wallet = await getOrCreateWallet(req.user._id);
-    if (wallet.balance < amount) {
-      return next(AppError.badRequest("Insufficient wallet balance"));
-    }
+    const amt = Number(amount);
 
-    const newBalance = wallet.balance - Number(amount);
-    wallet.transactions.push({
-      type: "debit",
-      amount: Number(amount),
-      description: description || "Payment",
-      order: orderId || undefined,
-      balanceAfter: newBalance,
+    const updated = await Wallet.findOneAndUpdate(
+      { user: req.user._id, balance: { $gte: amt }, isActive: true },
+      { $inc: { balance: -amt } },
+      { new: true }
+    );
+    if (!updated) return next(AppError.badRequest("Insufficient wallet balance"));
+
+    await Wallet.findByIdAndUpdate(updated._id, {
+      $push: {
+        transactions: {
+          type: "debit",
+          amount: amt,
+          description: description || "Payment",
+          order: orderId || undefined,
+          balanceAfter: updated.balance,
+          createdAt: new Date(),
+        },
+      },
     });
-    wallet.balance = newBalance;
-    await wallet.save();
 
-    res.json({ success: true, balance: wallet.balance });
+    res.json({ success: true, balance: updated.balance });
   } catch (err) {
     next(err);
   }

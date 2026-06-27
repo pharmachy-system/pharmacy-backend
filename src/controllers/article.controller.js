@@ -8,10 +8,10 @@ exports.getAllArticles = async (req, res, next) => {
     const skip = (page - 1) * limit;
 
     const filter = { status: "published" };
-    if (req.query.category) filter.category = req.query.category;
+    if (typeof req.query.category === "string") filter.category = req.query.category;
     if (req.query.featured === "true") filter.isFeatured = true;
-    if (req.query.tag) filter.tags = req.query.tag;
-    if (req.query.search) {
+    if (typeof req.query.tag === "string") filter.tags = req.query.tag;
+    if (typeof req.query.search === "string") {
       const escaped = req.query.search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       filter.$or = [
         { title: { $regex: escaped, $options: "i" } },

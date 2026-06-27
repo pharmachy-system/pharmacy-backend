@@ -4,7 +4,8 @@ const Medicine = require("../models/Medicine.model");
 // GET /api/reports/sales?startDate=&endDate=&page=&limit=
 exports.getSalesReport = async (req, res, next) => {
   try {
-    const { startDate, endDate } = req.query;
+    const startDate = typeof req.query.startDate === "string" ? req.query.startDate : undefined;
+    const endDate   = typeof req.query.endDate   === "string" ? req.query.endDate   : undefined;
     const page = parseInt(req.query.page) || 1;
     const limit = Math.min(parseInt(req.query.limit) || 50, 200);
     const skip = (page - 1) * limit;

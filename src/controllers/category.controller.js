@@ -8,7 +8,7 @@ exports.getAllCategories = async (req, res, next) => {
     if (req.query.featured) filter.isFeatured = true;
 
     // Top-level only unless parentId specified
-    if (req.query.parent) filter.parent = req.query.parent;
+    if (typeof req.query.parent === "string") filter.parent = req.query.parent;
     else if (req.query.topLevel !== "false") filter.parent = null;
 
     const categories = await Category.find(filter)

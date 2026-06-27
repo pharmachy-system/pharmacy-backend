@@ -29,3 +29,10 @@ dist/
 
 # Backup
 .reorg-backup/
+
+# Dev / admin scripts with hardcoded credentials — never commit
+make-admin.js
+debug-test.js
+test-db.js
+import-products.js
+products-import.json

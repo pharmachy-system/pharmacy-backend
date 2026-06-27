@@ -6,6 +6,11 @@ const Wallet   = require("../models/Wallet.model");
 const { createNotification } = require("../utils/notification.util");
 const logger = require("../config/logger.config");
 
+const getStripe = () => {
+  if (!process.env.STRIPE_SECRET_KEY) throw new Error("STRIPE_SECRET_KEY not configured");
+  return require("stripe")(process.env.STRIPE_SECRET_KEY);
+};
+
 const RETURNABLE_STATUSES = ["delivered"];
 const RETURN_WINDOW_DAYS  = 7; // customer has 7 days from delivery to request a return
 
@@ -212,9 +217,7 @@ exports.approveReturn = async (req, res, next) => {
       const payment = await Payment.findOne({ order: order._id, status: "completed", method: "card" });
       if (payment && payment.stripeChargeId) {
         try {
-          const stripe = require("../controllers/payment.controller").__getStripe
-            ? require("../controllers/payment.controller").__getStripe()
-            : (() => { throw new Error("Stripe not configured"); })();
+          const stripe = getStripe();
           await stripe.refunds.create({
             charge: payment.stripeChargeId,
             amount: Math.round(refundAmt * 100),

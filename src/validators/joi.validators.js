@@ -412,7 +412,7 @@ const order = {
 
   updateStatus: Joi.object({
     status: Joi.string()
-      .valid("pending", "confirmed", "processing", "shipped", "out_for_delivery", "delivered", "cancelled", "refunded")
+      .valid("pending", "confirmed", "processing", "shipped", "delivered", "cancelled", "refunded")
       .required()
       .messages({
         "any.only":     m("Invalid order status", "حالة الطلب غير صالحة"),
@@ -539,14 +539,20 @@ const user = {
 // ─── Delivery Zone ────────────────────────────────────────────────────────────
 const deliveryZone = {
   create: Joi.object({
-    name:           Joi.string().trim().required().messages({ "any.required": m("Zone name is required", "اسم المنطقة مطلوب") }),
-    nameAr:         Joi.string().trim().optional(),
-    cities:         Joi.array().items(Joi.string()).min(1).required().messages({ "any.required": m("At least one city is required", "مدينة واحدة على الأقل مطلوبة") }),
-    deliveryFee:    Joi.number().min(0).required().messages({ "any.required": m("Delivery fee is required", "رسوم التوصيل مطلوبة") }),
-    freeDeliveryAt: Joi.number().positive().optional(),
-    minDeliveryDays: Joi.number().integer().min(1).default(1),
-    maxDeliveryDays: Joi.number().integer().min(1).default(3),
-    isActive:       Joi.boolean().default(true),
+    name:                  Joi.string().trim().required().messages({ "any.required": m("Zone name is required", "اسم المنطقة مطلوب") }),
+    nameAr:                Joi.string().trim().optional(),
+    cities:                Joi.array().items(Joi.string()).min(1).required().messages({ "any.required": m("At least one city is required", "مدينة واحدة على الأقل مطلوبة") }),
+    deliveryFee:           Joi.number().min(0).required().messages({ "any.required": m("Delivery fee is required", "رسوم التوصيل مطلوبة") }),
+    // Accept both spellings; model field is freeDeliveryThreshold
+    freeDeliveryThreshold: Joi.number().min(0).optional(),
+    freeDeliveryAt:        Joi.number().min(0).optional(),
+    minDeliveryTime:       Joi.number().integer().min(1).optional(),
+    maxDeliveryTime:       Joi.number().integer().min(1).optional(),
+    isActive:              Joi.boolean().default(true),
+    polygon:               Joi.array().items(
+      Joi.object({ lat: Joi.number().required(), lng: Joi.number().required() })
+    ).optional(),
+    slots:                 Joi.array().optional(),
   }),
 };
 

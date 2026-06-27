@@ -39,7 +39,12 @@ const protect = async (req, res, next) => {
   // 4. Check active session (if device ID present or we can match by token hash)
   const deviceId = req.headers["x-device-id"] || req.body?.deviceId;
   if (deviceId) {
-    const session = await Session.findOne({ deviceId, user: decoded.id, isActive: true });
+    const session = await Session.findOne({
+      deviceId,
+      user:      decoded.id,
+      isActive:  true,
+      expiresAt: { $gt: new Date() },
+    });
     if (!session) {
       return next(AppError.unauthorized("Session expired or revoked. Please log in again."));
     }

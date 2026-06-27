@@ -57,7 +57,7 @@ medicineSchema.virtual("isOutOfStock").get(function () { return this.stock === 0
 medicineSchema.virtual("isExpired").get(function () { return this.expiryDate ? this.expiryDate < new Date() : false; });
 
 medicineSchema.pre("save", function (next) {
-  if (this.isModified("name") && !this.slug) {
+  if (this.isModified("name") || !this.slug) {
     this.slug = slugify(this.name + "-" + Date.now(), { lower: true, strict: true });
   }
   this.finalPrice = this.discount > 0

@@ -4,6 +4,7 @@ const {
   getProfile, updateProfile, uploadAvatar, changePassword,
   getAddresses, addAddress, updateAddress, deleteAddress, setDefaultAddress,
   getAllUsers, getUserById, updateUserStatus, updateUserRole, getLoyaltyPoints,
+  deleteUser, adminResetUserPassword,
 } = require("../controllers/user.controller");
 const { protect } = require("../middlewares/auth.middleware");
 const authorize = require("../middlewares/role.middleware");
@@ -27,9 +28,11 @@ router.delete("/me/addresses/:addressId", protect, deleteAddress);
 router.patch("/me/addresses/:addressId/default", protect, setDefaultAddress);
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
-router.get("/", protect, authorize("admin"), getAllUsers);
+router.get("/",    protect, authorize("admin"), getAllUsers);
 router.get("/:id", protect, authorize("admin", "pharmacist"), getUserById);
-router.patch("/:id/status", protect, strictLimiter, authorize("admin"), updateUserStatus);
-router.patch("/:id/role", protect, strictLimiter, authorize("admin"), updateUserRole);
+router.patch("/:id/status",         protect, strictLimiter, authorize("admin"), updateUserStatus);
+router.patch("/:id/role",           protect, strictLimiter, authorize("admin"), updateUserRole);
+router.delete("/:id",               protect, strictLimiter, authorize("admin"), deleteUser);
+router.patch("/:id/reset-password", protect, strictLimiter, authorize("admin"), adminResetUserPassword);
 
 module.exports = router;

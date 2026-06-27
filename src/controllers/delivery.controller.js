@@ -41,7 +41,13 @@ exports.getZoneById = async (req, res, next) => {
 
 exports.createZone = async (req, res, next) => {
   try {
-    const zone = await DeliveryZone.create(req.body);
+    const data = { ...req.body };
+    // Accept freeDeliveryAt as an alias for freeDeliveryThreshold
+    if (data.freeDeliveryAt !== undefined && data.freeDeliveryThreshold === undefined) {
+      data.freeDeliveryThreshold = data.freeDeliveryAt;
+    }
+    delete data.freeDeliveryAt;
+    const zone = await DeliveryZone.create(data);
     res.status(201).json({ success: true, zone });
   } catch (err) {
     next(err);
@@ -50,7 +56,12 @@ exports.createZone = async (req, res, next) => {
 
 exports.updateZone = async (req, res, next) => {
   try {
-    const zone = await DeliveryZone.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+    const data = { ...req.body };
+    if (data.freeDeliveryAt !== undefined && data.freeDeliveryThreshold === undefined) {
+      data.freeDeliveryThreshold = data.freeDeliveryAt;
+    }
+    delete data.freeDeliveryAt;
+    const zone = await DeliveryZone.findByIdAndUpdate(req.params.id, data, { new: true, runValidators: true });
     if (!zone) return res.status(404).json({ success: false, message: "Delivery zone not found" });
     res.json({ success: true, zone });
   } catch (err) {
@@ -220,14 +231,15 @@ exports.markDelivered = async (req, res, next) => {
     });
     await order.save();
 
-    // Mark COD payment as completed
+    // Mark COD payment as completed (upsert in case record wasn't pre-created)
     if (order.paymentMethod === "cash") {
       await Payment.findOneAndUpdate(
         { order: order._id, method: "cash" },
-        { status: "completed", paidAt: new Date() },
-        { upsert: true, setDefaultsOnInsert: true,
-          // in case record was never created, seed required fields
-          new: true }
+        {
+          $set:         { status: "completed", paidAt: new Date() },
+          $setOnInsert: { user: order.user, amount: order.total, currency: "SAR" },
+        },
+        { upsert: true, new: true }
       );
     }
 
@@ -299,8 +311,18 @@ exports.updateDriverStatus = async (req, res, next) => {
 // ── Admin: List Available Drivers ─────────────────────────────────────────────
 exports.getAvailableDrivers = async (req, res, next) => {
   try {
-    const statusFilter = req.query.status || "available";
-    const drivers = await User.find({ role: "delivery", driverStatus: statusFilter, isActive: true })
+    const validStatuses = ["available", "busy", "offline"];
+    const requestedStatus = req.query.status;
+    const filter = { role: "delivery", isActive: true };
+
+    if (requestedStatus && requestedStatus !== "all" && validStatuses.includes(requestedStatus)) {
+      filter.driverStatus = requestedStatus;
+    } else if (!requestedStatus) {
+      filter.driverStatus = "available";
+    }
+    // "all" or unrecognised → no driverStatus filter (return all drivers)
+
+    const drivers = await User.find(filter)
       .select("name phone driverStatus driverLocation lastLoginAt")
       .sort({ "driverLocation.updatedAt": -1 });
 

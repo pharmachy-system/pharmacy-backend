@@ -1,5 +1,6 @@
-const User = require("../models/User.model");
-const Wallet = require("../models/Wallet.model");
+const User    = require("../models/User.model");
+const Wallet  = require("../models/Wallet.model");
+const Session = require("../models/Session.model");
 const { uploadToCloudinary, deleteFromCloudinary } = require("../utils/cloudinary.util");
 
 // ─── Get Profile ──────────────────────────────────────────────────────────────
@@ -67,13 +68,16 @@ exports.changePassword = async (req, res, next) => {
     if (!(await user.matchPassword(currentPassword))) {
       return res.status(400).json({ success: false, message: "Current password is incorrect" });
     }
-    if (newPassword.length < 6) {
-      return res.status(400).json({ success: false, message: "Password must be at least 6 characters" });
+    if (newPassword.length < 8) {
+      return res.status(400).json({ success: false, message: "Password must be at least 8 characters" });
     }
 
-    user.password = newPassword;
-    user.refreshToken = null; // invalidate all sessions
+    user.password     = newPassword;
+    user.refreshToken = null;
     await user.save();
+
+    // Revoke all active device sessions
+    await Session.updateMany({ user: user._id }, { isActive: false, refreshTokenHash: null });
 
     res.json({ success: true, message: "Password changed. Please log in again." });
   } catch (err) {
@@ -174,9 +178,9 @@ exports.setDefaultAddress = async (req, res, next) => {
 // ─── Admin: List Users ────────────────────────────────────────────────────────
 exports.getAllUsers = async (req, res, next) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
-    const skip = (page - 1) * limit;
+    const page  = Math.max(1, parseInt(req.query.page)  || 1);
+    const limit = Math.min(100, parseInt(req.query.limit) || 20);
+    const skip  = (page - 1) * limit;
 
     const filter = {};
     if (req.query.role) filter.role = req.query.role;
@@ -242,6 +246,47 @@ exports.updateUserRole = async (req, res, next) => {
     const user = await User.findByIdAndUpdate(req.params.id, { role }, { new: true });
     if (!user) return res.status(404).json({ success: false, message: "User not found" });
     res.json({ success: true, user });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─── Admin: Soft-delete user ──────────────────────────────────────────────────
+exports.deleteUser = async (req, res, next) => {
+  try {
+    if (req.params.id === req.user._id.toString()) {
+      return res.status(400).json({ success: false, message: "Cannot delete your own account" });
+    }
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { isActive: false, blockedReason: "Account deleted by admin" },
+      { new: true }
+    );
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
+    await Session.updateMany({ user: user._id }, { isActive: false, refreshTokenHash: null });
+    res.json({ success: true, message: "User account deactivated" });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─── Admin: Force-reset user password ────────────────────────────────────────
+exports.adminResetUserPassword = async (req, res, next) => {
+  try {
+    const { newPassword } = req.body;
+    if (!newPassword || newPassword.length < 8) {
+      return res.status(400).json({ success: false, message: "newPassword must be at least 8 characters" });
+    }
+    const user = await User.findById(req.params.id).select("+password");
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
+
+    user.password     = newPassword;
+    user.refreshToken = null;
+    await user.save();
+
+    await Session.updateMany({ user: user._id }, { isActive: false, refreshTokenHash: null });
+
+    res.json({ success: true, message: "User password reset successfully" });
   } catch (err) {
     next(err);
   }

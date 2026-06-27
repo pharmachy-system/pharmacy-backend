@@ -19,27 +19,27 @@ exports.getCart = async (req, res, next) => {
     if (!cart) return res.json({ success: true, cart: { items: [], subtotal: 0, itemCount: 0 } });
 
     // Filter out inactive/deleted medicines
-    cart.items = cart.items.filter((item) => item.medicine && item.medicine.isActive);
+    const activeItems = cart.items.filter((item) => item.medicine && item.medicine.isActive);
 
-    // Refresh prices — use flash sale price when active
+    // Compute current prices — use flash sale price when active
     let subtotal = 0;
-    for (const item of cart.items) {
-      item.price = item.medicine.isFlashSale && item.medicine.flashSalePrice
+    const items = activeItems.map((item) => {
+      const currentPrice = item.medicine.isFlashSale && item.medicine.flashSalePrice
         ? item.medicine.flashSalePrice
         : item.medicine.finalPrice;
-      subtotal += item.price * item.quantity;
-    }
-    await cart.save();
+      subtotal += currentPrice * item.quantity;
+      return { ...item.toObject(), price: currentPrice };
+    });
 
     res.json({
       success: true,
       cart: {
         _id: cart._id,
-        items: cart.items,
+        items,
         subtotal,
         couponDiscount: cart.couponDiscount || 0,
         total: subtotal - (cart.couponDiscount || 0),
-        itemCount: cart.items.reduce((sum, i) => sum + i.quantity, 0),
+        itemCount: items.reduce((sum, i) => sum + i.quantity, 0),
         coupon: cart.coupon,
       },
     });

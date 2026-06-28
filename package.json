@@ -30,6 +30,7 @@
     "mongodbVersion": "6.0.12"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.106.0",
     "bcryptjs": "^3.0.3",
     "cloudinary": "^1.41.3",
     "compression": "^1.8.1",

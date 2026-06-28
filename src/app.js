@@ -30,11 +30,14 @@ app.use((req, res, next) => {
 // Security headers
 app.use(helmet());
 
-// CORS — supports comma-separated list; CLIENT_URL is the legacy alias for CORS_ORIGIN
-const allowedOrigins = (process.env.CORS_ORIGIN || process.env.CLIENT_URL || 'http://localhost:5173')
-  .split(',')
-  .map((o) => o.trim())
-  .filter(Boolean);
+// CORS — always allow Vite dev ports; also accepts CLIENT_URL / CORS_ORIGIN env vars
+const allowedOrigins = [
+  process.env.CLIENT_URL || 'http://localhost:3000',
+  'http://localhost:5173',
+  'http://localhost:5174',
+  // Support additional origins via CORS_ORIGIN (comma-separated)
+  ...((process.env.CORS_ORIGIN || '').split(',').map((o) => o.trim()).filter(Boolean)),
+].filter((v, i, a) => Boolean(v) && a.indexOf(v) === i); // deduplicate
 
 app.use(cors({
   origin: (origin, cb) => {

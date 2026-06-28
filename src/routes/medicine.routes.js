@@ -4,7 +4,7 @@ const {
   getAllMedicines, getMedicineById, getMedicineBySlug, createMedicine,
   updateMedicine, deleteMedicine, getLowStockMedicines, getExpiringMedicines,
   updateStock, checkInteractions, smartSearch, getAlternatives, updateAlternatives,
-  getRecommendations, searchSuggest,
+  getRecommendations, getPersonalizedRecommendations, searchSuggest,
 } = require("../controllers/medicine.controller");
 const { protect, optionalProtect } = require("../middlewares/auth.middleware");
 const authorize = require("../middlewares/role.middleware");
@@ -20,6 +20,9 @@ router.get("/search/smart",         smartSearch);
 router.get("/search/suggest",       cache(10), searchSuggest);
 router.get("/slug/:slug",           getMedicineBySlug);
 router.post("/check-interactions",  protect, checkInteractions);
+
+// ── Personalized recommendations (must be before /:id) ───────────────────────
+router.get("/recommendations",      optionalProtect, cache(60), getPersonalizedRecommendations);
 
 // ── Admin / Pharmacist alerts ─────────────────────────────────────────────────
 router.get("/alerts/low-stock", protect, authorize("admin", "pharmacist"), getLowStockMedicines);

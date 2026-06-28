@@ -1,6 +1,7 @@
 const Medicine = require("../models/Medicine.model");
 const { uploadToCloudinary, deleteFromCloudinary } = require("../utils/cloudinary.util");
 const User = require("../models/User.model");
+const Order = require("../models/Order.model");
 
 // ─── List Medicines ───────────────────────────────────────────────────────────
 exports.getAllMedicines = async (req, res, next) => {
@@ -447,6 +448,69 @@ exports.updateAlternatives = async (req, res, next) => {
     await medicine.populate("alternatives", "name nameAr slug finalPrice stock");
 
     res.json({ success: true, alternatives: medicine.alternatives });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─── Personalized Recommendations ────────────────────────────────────────────
+// GET /medicines/recommendations — returns personalized picks for authenticated
+// users (based on order history categories) or bestsellers for guests.
+exports.getPersonalizedRecommendations = async (req, res, next) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 6, 12);
+    let medicines = [];
+
+    if (req.user) {
+      // Pull categories the user has ordered before
+      const recentOrders = await Order.find({ user: req.user._id })
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .select("items.medicine")
+        .lean();
+
+      const orderedIds = recentOrders
+        .flatMap((o) => o.items?.map((i) => i.medicine) || [])
+        .filter(Boolean);
+
+      if (orderedIds.length > 0) {
+        // Get categories of previously ordered medicines
+        const orderedMeds = await Medicine.find({ _id: { $in: orderedIds } })
+          .select("category")
+          .lean();
+        const categories = [...new Set(orderedMeds.map((m) => m.category).filter(Boolean))];
+
+        if (categories.length > 0) {
+          medicines = await Medicine.find({
+            isActive: true,
+            stock: { $gt: 0 },
+            category: { $in: categories },
+            _id: { $nin: orderedIds },
+          })
+            .sort({ soldCount: -1, rating: -1 })
+            .limit(limit)
+            .select("name nameAr slug images finalPrice price discount stock rating reviewCount")
+            .lean();
+        }
+      }
+    }
+
+    // Fallback: bestsellers (for guests or users with no order history)
+    if (medicines.length < limit) {
+      const exclude = medicines.map((m) => m._id);
+      const extras = await Medicine.find({
+        isActive: true,
+        stock: { $gt: 0 },
+        _id: { $nin: exclude },
+      })
+        .sort({ soldCount: -1, rating: -1 })
+        .limit(limit - medicines.length)
+        .select("name nameAr slug images finalPrice price discount stock rating reviewCount")
+        .lean();
+      medicines = [...medicines, ...extras];
+    }
+
+    res.json({ success: true, medicines, total: medicines.length });
   } catch (err) {
     next(err);
   }

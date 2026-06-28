@@ -58,6 +58,9 @@ module.exports = (app) => {
   // ── Reports ──────────────────────────────────────────────────────────────────
   router.use("/reports",      require("./report.routes"));
 
+  // ── AI features ──────────────────────────────────────────────────────────────
+  router.use("/ai",           require("./ai.routes"));
+
   // ── Admin ────────────────────────────────────────────────────────────────────
   router.use("/admin/dashboard",  require("./admin/dashboard.routes"));
   router.use("/admin/inventory",  require("./admin/inventory.routes"));

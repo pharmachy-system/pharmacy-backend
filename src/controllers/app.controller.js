@@ -110,6 +110,19 @@ exports.getAppConfig = async (req, res, next) => {
         contactPhone:            process.env.SUPPORT_PHONE    || null,
         contactEmail:            process.env.SUPPORT_EMAIL    || null,
         whatsappNumber:          process.env.WHATSAPP_NUMBER  || null,
+        features: {
+          aiChat:             process.env.FEATURE_AI_CHAT          !== "false",
+          aiSymptomChecker:   process.env.FEATURE_AI_SYMPTOMS       !== "false",
+          aiMedicineAssist:   process.env.FEATURE_AI_MEDICINE       !== "false",
+          drugInteractions:   process.env.FEATURE_DRUG_INTERACTIONS !== "false",
+          smartSearch:        process.env.FEATURE_SMART_SEARCH      !== "false",
+          prescriptionOCR:    process.env.FEATURE_PRESCRIPTION_OCR  !== "false",
+          passkeys:           process.env.FEATURE_PASSKEYS          !== "false",
+          guestShopping:      process.env.FEATURE_GUEST_SHOPPING    !== "false",
+          nafathLogin:        process.env.FEATURE_NAFATH            !== "false",
+          darkMode:           process.env.FEATURE_DARK_MODE         !== "false",
+          hasAIKey:           !!process.env.ANTHROPIC_API_KEY,
+        },
       },
     });
   } catch (err) {

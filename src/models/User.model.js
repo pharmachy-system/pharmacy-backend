@@ -90,6 +90,17 @@ const userSchema = new mongoose.Schema({
     viewedAt: { type: Date, default: Date.now },
     _id: false,
   }],
+
+  // ── Passkeys / WebAuthn ───────────────────────────────────────────────────
+  passkeys: [{
+    credentialId:    { type: String, required: true },
+    credentialRawId: { type: String },
+    publicKey:       { type: String },
+    signCount:       { type: Number, default: 0 },
+    deviceType:      { type: String, default: 'unknown' },
+    registeredAt:    { type: Date, default: Date.now },
+    lastUsed:        { type: Date, default: null },
+  }],
 }, { timestamps: true });
 
 userSchema.index({ phone: 1 }, { sparse: true });

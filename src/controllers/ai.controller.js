@@ -5,9 +5,9 @@
  * offline engine so the app is always functional.
  */
 
-const asyncHandler = require("../utils/asyncHandler.util");
-const AppError     = require("../utils/appError.util");
-const Medicine     = require("../models/medicine.model");
+const asyncHandler = require("express-async-handler");
+const AppError     = require("../utils/AppError");
+const Medicine     = require("../models/Medicine.model");
 
 // ─── Offline knowledge base ───────────────────────────────────────────────────
 const SYMPTOM_MAP = {

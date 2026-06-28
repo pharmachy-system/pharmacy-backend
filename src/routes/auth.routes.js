@@ -14,6 +14,7 @@ const pinCtrl        = require("../controllers/pin.controller");
 const phoneOtpCtrl   = require("../controllers/phoneOtp.controller");
 const nafathCtrl     = require("../controllers/nafath.controller");
 const guestCtrl      = require("../controllers/guest.controller");
+const passkeyCtrl    = require("../controllers/passkey.controller");
 
 // ── Middleware ────────────────────────────────────────────────────────────────
 const { protect }                                              = require("../middlewares/auth.middleware");
@@ -67,6 +68,14 @@ router.post("/biometric/disable",     protect, joiValidate(schemas.biometric.dis
 router.post("/pin/set",               protect, joiValidate(schemas.pin.set),     pinCtrl.setPin);
 router.post("/pin/verify",            authLimiter, joiValidate(schemas.pin.verify), pinCtrl.verifyPin);
 router.delete("/pin",                 protect, joiValidate(schemas.pin.remove),  pinCtrl.removePin);
+
+// ── Passkey / WebAuthn ────────────────────────────────────────────────────────
+router.get ("/passkey/register-options",  protect, passkeyCtrl.getRegistrationOptions);
+router.post("/passkey/register",          protect, passkeyCtrl.register);
+router.post("/passkey/login-options",     authLimiter, passkeyCtrl.getAuthOptions);
+router.post("/passkey/login",             authLimiter, passkeyCtrl.login);
+router.get ("/passkey/list",              protect, passkeyCtrl.list);
+router.delete("/passkey/:credentialId",   protect, passkeyCtrl.remove);
 
 // ── Guest Session ─────────────────────────────────────────────────────────────
 // Short alias  POST /api/auth/guest  → returns { guestId, guestToken, userType }

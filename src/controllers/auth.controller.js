@@ -13,6 +13,9 @@ const { generateAccessToken, generateRefreshToken } = require("../utils/token.ut
 const { extractDeviceInfo, upsertSession }          = require("../utils/session.util");
 const { sendOtpEmail, sendPasswordResetEmail }      = require("../utils/email.util");
 
+// Risk engine
+const riskEngine = require("../middlewares/riskEngine.middleware");
+
 // ─── Role → userType mapping ──────────────────────────────────────────────────
 const ROLE_TO_USER_TYPE = {
   customer:    "patient",
@@ -127,6 +130,7 @@ exports.login = async (req, res, next) => {
       if (user) {
         user.recordFailedLogin();
         await user.save({ validateBeforeSave: false });
+        riskEngine.recordFailedAttempt(req.ip, email);
 
         const attemptsLeft = Math.max(0, 5 - user.loginFailedAttempts);
         return res.status(401).json({
@@ -136,6 +140,7 @@ exports.login = async (req, res, next) => {
           attemptsLeft: user.isLockedOut() ? 0 : attemptsLeft,
         });
       }
+      riskEngine.recordFailedAttempt(req.ip, email);
       return res.status(401).json({ success: false, message: "Invalid email or password", code: "INVALID_CREDENTIALS" });
     }
 
@@ -148,7 +153,19 @@ exports.login = async (req, res, next) => {
     }
 
     const deviceInfo = extractDeviceInfo(req);
-    return issueTokensAndRespond(res, user, deviceInfo, req, { rememberDevice });
+    const risk       = riskEngine.assess(req, user._id, email);
+    riskEngine.resetFailedAttempts(req.ip, email);
+    riskEngine.registerDevice(String(user._id), risk.deviceHash);
+    riskEngine.updateLastIP(String(user._id), risk.ip);
+
+    return issueTokensAndRespond(res, user, deviceInfo, req, {
+      rememberDevice,
+      extras: {
+        riskLevel:    risk.riskLevel,
+        requiresMFA:  risk.requiresMFA,
+        isNewDevice:  risk.factors.newDevice,
+      },
+    });
   } catch (err) {
     next(err);
   }
